@@ -18,7 +18,7 @@
 #ifndef ZIP_HANDLER_HXX
 #define ZIP_HANDLER_HXX
 
-#include <fstream>
+#include <istream>
 #include "bspf.hxx"
 
 /***************************************************************************
@@ -87,9 +87,9 @@ class ZipHandler
 
   private:
     // Replaces functionaity of various osd_xxxx functions
-    static bool stream_open(const char* filename, fstream** stream, uInt64& length);
-    static void stream_close(fstream** stream);
-    static bool stream_read(fstream* stream, void* buffer, uInt64 offset,
+    static bool stream_open(const char* filename, istream** stream, uInt64& length);
+    static void stream_close(istream** stream);
+    static bool stream_read(istream* stream, void* buffer, uInt64 offset,
                             uInt32 length, uInt32& actual);
 
     /* Error types */
@@ -154,7 +154,7 @@ class ZipHandler
     struct zip_file
     {
       const char*     filename;   /* copy of ZIP filename (for caching) */
-      fstream*        file;       /* C++ fstream file handle */
+      istream*        file;       /* C++ istream file handle */
       uInt64          length;     /* length of zip file */
       uInt16          romfiles;   /* number of ROM files in central directory */
 

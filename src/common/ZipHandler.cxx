@@ -17,6 +17,7 @@
 
 #include <cctype>
 #include <cstdlib>
+#include <fstream>
 #include <zlib.h>
 
 #include "ZipHandler.hxx"
@@ -119,11 +120,11 @@ uInt32 ZipHandler::decompress(BytePtr& image)
     file access functions
 -------------------------------------------------*/
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-bool ZipHandler::stream_open(const char* filename, fstream** stream,
+bool ZipHandler::stream_open(const char* filename, istream** stream,
                              uInt64& length)
 {
-  fstream* in = new fstream(filename, fstream::in | fstream::binary);
-  if(!in || !in->is_open())
+  istream* in = new fstream(filename, fstream::in | fstream::binary);
+  if(!in || in->fail())
   {
     *stream = nullptr;
     length = 0;
@@ -141,19 +142,17 @@ bool ZipHandler::stream_open(const char* filename, fstream** stream,
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-void ZipHandler::stream_close(fstream** stream)
+void ZipHandler::stream_close(istream** stream)
 {
   if(*stream)
   {
-    if((*stream)->is_open())
-      (*stream)->close();
     delete *stream;
     *stream = nullptr;
   }
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-bool ZipHandler::stream_read(fstream* stream, void* buffer, uInt64 offset,
+bool ZipHandler::stream_read(istream* stream, void* buffer, uInt64 offset,
                              uInt32 length, uInt32& actual)
 {
   try
