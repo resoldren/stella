@@ -16,6 +16,7 @@
 //============================================================================
 
 #include "FSNodePOSIX.hxx"
+#include <fstream>
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void FilesystemNodePOSIX::setFlags()
@@ -235,4 +236,23 @@ AbstractFSNode* FilesystemNodePOSIX::getParent() const
   const char* end = lastPathComponent(_path);
 
   return new FilesystemNodePOSIX(string(start, size_t(end - start)));
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+uInt32 FilesystemNodePOSIX::read(BytePtr& image) const
+{
+  std::fstream in(_path, std::fstream::in | std::fstream::binary);
+  if (in)
+  {
+    in.seekg(0, std::ios::end);
+    auto length = in.tellg();
+    image = make_ptr<uInt8[]>(length);
+    in.seekg(0, std::ios::beg);
+    if (in.read(reinterpret_cast<char*>(image.get()), length)) {
+      return length;
+    } else {
+      image.reset();
+    }
+  }
+  return 0;
 }

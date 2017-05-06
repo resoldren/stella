@@ -75,6 +75,7 @@ class FilesystemNodePOSIX : public AbstractFSNode
 
     bool getChildren(AbstractFSList& list, ListMode mode, bool hidden) const override;
     AbstractFSNode* getParent() const override;
+    uInt32 read(BytePtr& image) const override;
 
   protected:
     string _path;
