@@ -7,6 +7,7 @@ MODULE_OBJS := \
 	src/common/FrameBufferSDL2.o \
 	src/common/FBSurfaceSDL2.o \
 	src/common/SoundSDL2.o \
+	src/common/FSNodeStream.o \
 	src/common/FSNodeZIP.o \
 	src/common/PNGLibrary.o \
 	src/common/MouseControl.o \
