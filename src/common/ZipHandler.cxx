@@ -22,6 +22,10 @@
 
 #include "ZipHandler.hxx"
 
+#if defined(ZIP_USE_FSNODE)
+#include "FSNodeStream.hxx"
+#endif
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ZipHandler::ZipHandler()
   : myZip(nullptr)
@@ -123,7 +127,11 @@ uInt32 ZipHandler::decompress(BytePtr& image)
 bool ZipHandler::stream_open(const char* filename, istream** stream,
                              uInt64& length)
 {
+#if defined(ZIP_USE_FSNODE)
+  istream* in = new FilesystemNodeStream(filename);
+#else
   istream* in = new fstream(filename, fstream::in | fstream::binary);
+#endif
   if(!in || in->fail())
   {
     *stream = nullptr;
