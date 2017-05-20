@@ -611,21 +611,29 @@ void EventHandler::handleMouseButtonEvent(MouseButton b, int x, int y)
 void EventHandler::handleJoyEvent(int stick, int button, uInt8 state)
 {
   const StellaJoystick* joy = myJoyHandler->joy(stick);
+  printf("looking for joy\n");
   if(!joy)  return;
+  printf("found joy\n");
 
   // Stelladaptors handle buttons differently than regular joysticks
   switch(joy->type)
   {
     case StellaJoystick::JT_REGULAR:
+		printf("regular type\n");
       // Handle buttons which switch eventhandler state
-      if(state && eventStateChange(joy->btnTable[button][kEmulationMode]))
+      if(state && eventStateChange(joy->btnTable[button][kEmulationMode])) {
+        printf("exit1\n");
         return;
+      }
 
       // Determine which mode we're in, then send the event to the appropriate place
-      if(myState == S_EMULATE)
+      if(myState == S_EMULATE) {
         handleEvent(joy->btnTable[button][kEmulationMode], state);
-      else if(myOverlay)
+        printf("em\n");
+      } else if(myOverlay) {
         myOverlay->handleJoyEvent(stick, button, state);
+        printf("!em\n");
+      }
       break;  // Regular button
 
     // These events don't have to pass through handleEvent, since
@@ -663,6 +671,7 @@ void EventHandler::handleJoyEvent(int stick, int button, uInt8 state)
       }
       break;  // 2600DAPTOR button
     default:
+      // printf("Unknown type\n");
       break;
   }
 }

@@ -305,6 +305,7 @@ string OSystem::createConsole(const FilesystemNode& rom, const string& md5sum,
   try
   {
     closeConsole();
+    printf("CREATE...open\n");
     myConsole = openConsole(myRomFile, myRomMD5, type, id);
   }
   catch(const runtime_error& e)
@@ -437,6 +438,7 @@ string OSystem::getROMInfo(const FilesystemNode& romfile)
   try
   {
     string md5, type, id;
+    printf("INFO...open\n");
     console = openConsole(romfile, md5, type, id);
   }
   catch(const runtime_error& e)
@@ -476,6 +478,7 @@ unique_ptr<Console> OSystem::openConsole(const FilesystemNode& romfile,
   uInt32 size  = 0;
   if((image = openROM(romfile, md5, size)) != nullptr)
   {
+    printf("openROM succeeded\n");
     // Get a valid set of properties, including any entered on the commandline
     // For initial creation of the Cart, we're only concerned with the BS type
     Properties props;
@@ -529,6 +532,8 @@ unique_ptr<Console> OSystem::openConsole(const FilesystemNode& romfile,
     // Finally, create the cart with the correct properties
     if(cart)
       console = make_ptr<Console>(*this, cart, props);
+  } else {
+    printf("openROM failed\n");
   }
 
   return console;
@@ -555,9 +560,14 @@ BytePtr OSystem::openROM(const FilesystemNode& rom, string& md5, uInt32& size)
   // but also adds a properties entry if the one for the ROM doesn't
   // contain a valid name
 
+  printf("openROM\n");
+  printf("  INFO: '%s' '%s'\n", rom.getName().c_str(), rom.getPath().c_str());
   BytePtr image;
-  if((size = rom.read(image)) == 0)
+  if((size = rom.read(image)) == 0) {
+    printf("read returned 0\n");
     return nullptr;
+  }
+  printf("read returned non 0\n");
 
   // If we get to this point, we know we have a valid file to open
   // Now we make sure that the file has a valid properties entry
