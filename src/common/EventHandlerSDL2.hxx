@@ -37,7 +37,12 @@ class EventHandlerSDL2 : public EventHandler
     EventHandlerSDL2(OSystem& osystem);
     virtual ~EventHandlerSDL2() = default;
 
+    void resetEvents() override;
+
   private:
+    // Callback function invoked by the event-reset timer
+    static uInt32 resetEventsCallback(uInt32 interval, void* param);
+
     /**
       Enable/disable text events (distinct from single-key events).
     */

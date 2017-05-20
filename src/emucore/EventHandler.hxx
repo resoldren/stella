@@ -343,6 +343,8 @@ class EventHandler
     // Global OSystem object
     OSystem& myOSystem;
 
+    virtual void resetEvents();
+
     /**
       Methods which are called by derived classes to handle specific types
       of input.
@@ -534,9 +536,6 @@ class EventHandler
     bool eventIsAnalog(Event::Type event) const;
 
     void setEventState(State state);
-
-    // Callback function invoked by the event-reset timer
-    static uInt32 resetEventsCallback(uInt32 interval, void* param);
 
   private:
     // Structure used for action menu items

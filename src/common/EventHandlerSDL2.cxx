@@ -25,6 +25,22 @@ EventHandlerSDL2::EventHandlerSDL2(OSystem& osystem)
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+void EventHandlerSDL2::resetEvents()
+{
+  // Reset events almost immediately after starting emulation mode
+  // We wait a little while, since 'hold' events may be present, and we want
+  // time for the ROM to process them
+  SDL_AddTimer(500, resetEventsCallback, static_cast<void*>(this));
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+uInt32 EventHandlerSDL2::resetEventsCallback(uInt32 interval, void* param)
+{
+  (static_cast<EventHandlerSDL2*>(param))->EventHandler::resetEvents();
+  return 0;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void EventHandlerSDL2::enableTextEvents(bool enable)
 {
   if(enable)

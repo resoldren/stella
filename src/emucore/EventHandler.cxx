@@ -113,11 +113,18 @@ void EventHandler::reset(State state)
 
   setContinuousSnapshots(0);
 
-  // Reset events almost immediately after starting emulation mode
-  // We wait a little while, since 'hold' events may be present, and we want
-  // time for the ROM to process them
+  // Ideally this common implementation would wait half a second before
+  // calling resetEvents, but for now it depends on its subclasses to
+  // override resetEvents, implement the delay, then call
+  // EventHandler::resetEvents
   if(state == S_EMULATE)
-    SDL_AddTimer(500, resetEventsCallback, static_cast<void*>(this));
+    resetEvents();
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+void EventHandler::resetEvents()
+{
+  myEvent.clear();
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -2053,13 +2060,6 @@ void EventHandler::setEventState(State state)
   // Sometimes an extraneous mouse motion event is generated
   // after a state change, which should be supressed
   mySkipMouseMotion = true;
-}
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-uInt32 EventHandler::resetEventsCallback(uInt32 interval, void* param)
-{
-  (static_cast<EventHandler*>(param))->myEvent.clear();
-  return 0;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
