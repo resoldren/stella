@@ -47,6 +47,7 @@ using uInt64 = uint64_t;
 #include <cstring>
 #include <cctype>
 #include <cstdio>
+#include <ctime>
 #include <utility>
 #include <vector>
 #include "UniquePtr.hxx"  // only until C++14 compilers are more common

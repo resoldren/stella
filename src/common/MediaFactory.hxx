@@ -133,6 +133,36 @@ class MediaFactory
     #endif
   #endif
 
+  #if defined(BSPF_VIDEO_SDL2) || defined(BSPF_AUDIO_SDL2) || defined(BSPF_EVENTS_SDL2)
+    static void delay(uInt32 milliseconds)
+    {
+      SDL_Delay(milliseconds);
+    }
+  #else
+    static void delay(uInt32 milliseconds)
+    {
+      struct timespec ts;
+      ts.tv_sec = milliseconds / 1000;
+      ts.tv_nsec = (milliseconds % 1000) * 1000000;
+      while (1) {
+        struct timespec rem;
+        int r = nanosleep(&ts, &rem);
+        if (r == 0)
+        {
+          break;
+        }
+        else if (errno == EINTR)
+        {
+          ts = rem;
+        }
+        else
+        {
+          break; // Error
+        }
+      }
+    }
+  #endif
+
   private:
     // Following constructors and assignment operators not supported
     MediaFactory() = delete;
