@@ -38,6 +38,10 @@
   #include "CheatManager.hxx"
 #endif
 
+#if defined(BSPF_MAC_OSX)
+#define BSPF_NO_MAIN
+#endif
+
 // Pointer to the main parent osystem object or the null pointer
 unique_ptr<OSystem> theOSystem;
 
@@ -52,7 +56,7 @@ int Cleanup()
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#if defined(BSPF_MAC_OSX)
+#if defined(BSPF_NO_MAIN)
 int stellaMain(int argc, char* argv[])
 #else
 int main(int argc, char* argv[])
