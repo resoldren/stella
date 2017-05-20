@@ -23,7 +23,7 @@
 #include "OSystem.hxx"
 #include "Settings.hxx"
 #include "SerialPort.hxx"
-#if defined(BSPF_UNIX)
+#if defined(BSPF_UNIX) || defined(BSPF_ROKU)
   #include "SerialPortUNIX.hxx"
   #include "SettingsUNIX.hxx"
   #include "OSystemUNIX.hxx"
@@ -47,12 +47,22 @@
   #define HAVE_VIDEO
 #endif
 
+#if defined(BSPF_VIDEO_ROKU)
+  #include "FrameBufferRoku.hxx"
+  #define HAVE_VIDEO
+#endif
+
 #ifndef HAVE_VIDEO
   #error No video support
 #endif
 
 #if defined(BSPF_EVENTS_SDL2)
   #include "EventHandlerSDL2.hxx"
+  #define HAVE_EVENTS
+#endif
+
+#if defined(BSPF_EVENTS_ROKU)
+ #include "EventHandlerRoku.hxx"
   #define HAVE_EVENTS
 #endif
 
@@ -63,6 +73,9 @@
 #ifdef SOUND_SUPPORT
   #if defined(BSPF_AUDIO_SDL2)
     #include "SoundSDL2.hxx"
+  #endif
+  #if defined(BSPF_AUDIO_ROKU)
+    #include "SoundRoku.hxx"
   #endif
 #endif
 
@@ -84,7 +97,7 @@ class MediaFactory
   public:
     static unique_ptr<OSystem> createOSystem()
     {
-    #if defined(BSPF_UNIX)
+    #if defined(BSPF_UNIX) || defined(BSPF_ROKU)
       return make_ptr<OSystemUNIX>();
     #elif defined(BSPF_WINDOWS)
       return make_ptr<OSystemWINDOWS>();
@@ -97,7 +110,7 @@ class MediaFactory
 
     static unique_ptr<Settings> createSettings(OSystem& osystem)
     {
-    #if defined(BSPF_UNIX)
+    #if defined(BSPF_UNIX) || defined(BSPF_ROKU)
       return make_ptr<SettingsUNIX>(osystem);
     #elif defined(BSPF_WINDOWS)
       return make_ptr<SettingsWINDOWS>(osystem);
@@ -110,7 +123,7 @@ class MediaFactory
 
     static unique_ptr<SerialPort> createSerialPort()
     {
-    #if defined(BSPF_UNIX)
+    #if defined(BSPF_UNIX) || defined(BSPF_ROKU)
       return make_ptr<SerialPortUNIX>();
     #elif defined(BSPF_WINDOWS)
       return make_ptr<SerialPortWINDOWS>();
@@ -157,6 +170,12 @@ class MediaFactory
 	  return make_ptr<FrameBufferSDL2>(osystem);
         }
       #endif
+      #if defined(BSPF_VIDEO_ROKU)
+        if (video == "Roku")
+	{
+	  return make_ptr<FrameBufferRoku>(osystem);
+        }
+      #endif
       throw runtime_error("Unsupported lib.video value");
     }
 
@@ -183,6 +202,13 @@ class MediaFactory
           if (audio == "SDL2")
           {
             return make_ptr<SoundSDL2>(osystem);
+          }
+        #endif
+        #if defined(BSPF_AUDIO_ROKU)
+          if (audio == "Roku")
+	  {
+            printf("Making Roku Sound\n");
+            return make_ptr<SoundRoku>(osystem);
           }
         #endif
       #endif
@@ -215,6 +241,12 @@ class MediaFactory
         if (events == "SDL2")
         {
           return make_ptr<EventHandlerSDL2>(osystem);
+        }
+      #endif
+      #if defined(BSPF_EVENTS_ROKU)
+        if (events == "Roku")
+        {
+          return make_ptr<EventHandlerRoku>(osystem);
         }
       #endif
       return nullptr;
