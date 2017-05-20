@@ -26,6 +26,14 @@ _build_thumb=yes
 _build_static=no
 _build_profile=no
 
+# media backends
+_video_default_library=none
+_audio_default_library=none
+_events_default_library=none
+_video_sdl2=yes
+_audio_sdl2=yes
+_events_sdl2=yes
+
 # more defaults
 _ranlib=ranlib
 _install=install
@@ -209,6 +217,17 @@ Optional Features:
   --disable-profile
   --force-builtin-libpng force use of built-in libpng library [auto]
 
+Media Backends:
+  --enable-video-sdl2    enable/disable SDL2 video library [enabled]
+  --disable-video-sdl2
+  --enable-audio-sdl2    enable/disable SDL2 audio library [enabled]
+  --disable-audio-sdl2
+  --enable-events-sdl2   enable/disable SDL2 events library [enabled]
+  --disable-events-sdl2
+  --default-video=LIB    Set default video library (optional)
+  --default-audio=LIB    Set default audio library (optional)
+  --default-events=LIB   Set default events library (optional)
+
 Optional Libraries:
   --with-sdl-prefix=DIR    Prefix where the sdl2-config script is installed (optional)
   --with-libpng-prefix=DIR Prefix where libpng is installed (optional)
@@ -247,6 +266,21 @@ for ac_option in $@; do
       --enable-profile)         _build_profile=yes   ;;
       --disable-profile)        _build_profile=no    ;;
       --force-builtin-libpng)   _libpng=no           ;;
+      --enable-video-sdl2)      _video_sdl2=yes      ;;
+      --disable-video-sdl2)     _video_sdl2=no       ;;
+      --enable-audio-sdl2)      _audio_sdl2=yes      ;;
+      --disable-audio-sdl2)     _audio_sdl2=no       ;;
+      --enable-events-sdl2)     _events_sdl2=yes     ;;
+      --disable-events-sdl2)    _events_sdl2=no      ;;
+      --default-video=*)
+        _video_default_library=`echo $ac_option | cut -d '=' -f 2`
+        ;;
+      --default-audio=*)
+        _audio_default_library=`echo $ac_option | cut -d '=' -f 2`
+        ;;
+      --default-events=*)
+        _events_default_library=`echo $ac_option | cut -d '=' -f 2`
+        ;;
       --with-sdl-prefix=*)
         arg=`echo $ac_option | cut -d '=' -f 2`
         _sdlpath="$arg:$arg/bin"
@@ -314,6 +348,58 @@ mingw32-cross)
 	_host_vendor=`echo $guessed_host | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\2/'`
 	;;
 esac
+
+#
+# Validate default media libraries
+#
+
+_video_default_library_valid=no
+_audio_default_library_valid=no
+_events_default_library_valid=no
+
+validate_media () {
+	if test "$1" = yes ; then
+		if test "${!3}" = none ; then
+			eval $3=$2
+		fi
+		if test "${!3}" = $2 ; then
+			eval $4=yes
+		fi
+	fi
+}
+
+validate_media $_video_sdl2 SDL2 _video_default_library _video_default_library_valid
+validate_media $_audio_sdl2 SDL2 _audio_default_library _audio_default_library_valid
+validate_media $_events_sdl2 SDL2 _events_default_library _events_default_library_valid
+
+if test "$_video_default_library" = none ; then
+	echo "ERROR: No video libraries enabled"
+	exit 1
+fi
+
+if test "$_video_default_library_valid" = no ; then
+	echo "ERROR: Invalid default video library: $_video_default_library"
+	exit 1
+fi
+
+if test "$_audio_default_library" = none ; then
+	echo "WARNING: No audio libraries enabled"
+else
+	if test "$_audio_default_library_valid" = no ; then
+		echo "ERROR: Invalid default audio library: $_audio_default_library"
+		exit 1
+	fi
+fi
+
+if test "$_events_default_library" = none ; then
+	echo "ERROR: No events libraries enabled"
+	exit 1
+fi
+
+if test "$_events_default_library_valid" = no ; then
+	echo "ERROR: Invalid default events library: $_events_default_library"
+	exit 1
+fi
 
 #
 # Determine extension used for executables
@@ -663,6 +749,32 @@ else
 	echo
 fi
 
+if test "$_video_sdl2" = yes ; then
+	echo_n "   SDL2 video enabled"
+	if test "$_video_default_library" = "SDL2" ; then echo_n " [Default]"; fi
+	echo
+else
+	echo_n "   SDL2 video disabled"
+	echo
+fi
+
+if test "$_audio_sdl2" = yes ; then
+	echo_n "   SDL2 audio enabled"
+	if test "$_audio_default_library" = "SDL2" ; then echo_n " [Default]"; fi
+	echo
+else
+	echo_n "   SDL2 audio disabled"
+	echo
+fi
+
+if test "$_events_sdl2" = yes ; then
+	echo_n "   SDL2 events enabled"
+	if test "$_events_default_library" = "SDL2" ; then echo_n " [Default]"; fi
+	echo
+else
+	echo_n "   SDL2 events disabled"
+	echo
+fi
 
 #
 # Now, add the appropriate defines/libraries/headers
@@ -712,6 +824,30 @@ case $_host_os in
 			exit
 			;;
 esac
+
+if test "$_video_sdl2" = yes; then
+	DEFINES="$DEFINES -DBSPF_VIDEO_SDL2"
+	_sdl2=yes
+fi
+
+if test "$_audio_sdl2" = yes; then
+	DEFINES="$DEFINES -DBSPF_AUDIO_SDL2"
+	_sdl2=yes
+fi
+
+if test "$_events_sdl2" = yes; then
+	DEFINES="$DEFINES -DBSPF_EVENTS_SDL2"
+	_sdl2=yes
+fi
+
+if test "$_sdl2" = yes ; then
+	MODULES="$MODULES $SRC/SDL2"
+	INCLUDES="$INCLUDES -I$SRC/SDL2"
+fi
+
+DEFINES="$DEFINES -DBSPF_VIDEO_DEFAULT='\"$_video_default_library\"'"
+DEFINES="$DEFINES -DBSPF_AUDIO_DEFAULT='\"$_audio_default_library\"'"
+DEFINES="$DEFINES -DBSPF_EVENTS_DEFAULT='\"$_events_default_library\"'"
 
 if test "$_libpng" = yes ; then
   LIBS="$LIBS -lpng"

@@ -42,13 +42,31 @@
   #error Unsupported platform!
 #endif
 
-#include "FrameBufferSDL2.hxx"
-#include "EventHandlerSDL2.hxx"
-#ifdef SOUND_SUPPORT
-  #include "SoundSDL2.hxx"
-#else
-  #include "SoundNull.hxx"
+#if defined(BSPF_VIDEO_SDL2)
+  #include "FrameBufferSDL2.hxx"
+  #define HAVE_VIDEO
 #endif
+
+#ifndef HAVE_VIDEO
+  #error No video support
+#endif
+
+#if defined(BSPF_EVENTS_SDL2)
+  #include "EventHandlerSDL2.hxx"
+  #define HAVE_EVENTS
+#endif
+
+#ifndef HAVE_EVENTS
+  #error No event support
+#endif
+
+#ifdef SOUND_SUPPORT
+  #if defined(BSPF_AUDIO_SDL2)
+    #include "SoundSDL2.hxx"
+  #endif
+#endif
+
+#include "SoundNull.hxx"
 
 /**
   This class deals with the different framebuffer/sound/event
@@ -128,7 +146,18 @@ class MediaFactory
 
     static unique_ptr<FrameBuffer> createVideo(OSystem& osystem)
     {
-      return make_ptr<FrameBufferSDL2>(osystem);
+      std::string video = osystem.settings().getString("lib.video");
+      #if defined (BSPF_VIDEO_DEFAULT)
+        if (video.empty())
+	  video = BSPF_VIDEO_DEFAULT;
+      #endif
+      #if defined(BSPF_VIDEO_SDL2)
+        if (video == "SDL2")
+	{
+	  return make_ptr<FrameBufferSDL2>(osystem);
+        }
+      #endif
+      throw runtime_error("Unsupported lib.video value");
     }
 
     static string getAudioInfo()
@@ -142,11 +171,28 @@ class MediaFactory
 
     static unique_ptr<Sound> createAudio(OSystem& osystem)
     {
-    #ifdef SOUND_SUPPORT
-      return make_ptr<SoundSDL2>(osystem);
-    #else
+      std::string audio = osystem.settings().getString("lib.audio");
+      printf("audio: %s\n", audio.c_str());
+      #ifdef SOUND_SUPPORT
+        #if defined (BSPF_AUDIO_DEFAULT)
+          if (audio.empty())
+            audio = BSPF_AUDIO_DEFAULT;
+          printf("audio: %s\n", audio.c_str());
+        #endif
+        #if defined(BSPF_AUDIO_SDL2)
+          if (audio == "SDL2")
+          {
+            return make_ptr<SoundSDL2>(osystem);
+          }
+        #endif
+      #endif
+      if (audio == "none")
+      {
+        return make_ptr<SoundNull>(osystem);
+      }
+      // TODO - what to return
       return make_ptr<SoundNull>(osystem);
-    #endif
+      return nullptr;
     }
 
     static string getEventInfo()
@@ -160,7 +206,18 @@ class MediaFactory
 
     static unique_ptr<EventHandler> createEventHandler(OSystem& osystem)
     {
-      return make_ptr<EventHandlerSDL2>(osystem);
+      std::string events = osystem.settings().getString("lib.events");
+      #if defined (BSPF_EVENTS_DEFAULT)
+        if (events.empty())
+	  events = BSPF_EVENTS_DEFAULT;
+      #endif
+      #if defined(BSPF_EVENTS_SDL2)
+        if (events == "SDL2")
+        {
+          return make_ptr<EventHandlerSDL2>(osystem);
+        }
+      #endif
+      return nullptr;
     }
 
   #ifndef HAVE_GETTIMEOFDAY
