@@ -122,6 +122,17 @@ class MediaFactory
       return make_ptr<EventHandlerSDL2>(osystem);
     }
 
+  #ifndef HAVE_GETTIMEOFDAY
+    #if defined(BSPF_VIDEO_SDL2) || defined(BSPF_AUDIO_SDL2) || defined(BSPF_EVENTS_SDL2)
+    static uInt32 getTicks()
+    {
+      return SDL_GetTicks();
+    }
+    #else
+      #error Unsupported platform for getTicks!
+    #endif
+  #endif
+
   private:
     // Following constructors and assignment operators not supported
     MediaFactory() = delete;

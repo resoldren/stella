@@ -629,11 +629,11 @@ uInt64 OSystem::getTicks() const
 
   return uInt64(now.tv_sec) * 1000000 + now.tv_usec;
 #else
-  // We use SDL_GetTicks, but add in the time when the application was
-  // initialized.  This is necessary, since SDL_GetTicks only measures how
-  // long SDL has been running, which can be the same between multiple runs
-  // of the application.
-  return uInt64(SDL_GetTicks() + myMillisAtStart) * 1000;
+  // We use MediaFactory::getTicks, but add in the time when the application
+  // was initialized.  This is necessary, since MediaFactory::getTicks only
+  // measures how long the MediaFactory has been running, which can be the
+  // same between multiple runs of the application.
+  return uInt64(MediaFactory::getTicks() + myMillisAtStart) * 1000;
 #endif
 }
 
