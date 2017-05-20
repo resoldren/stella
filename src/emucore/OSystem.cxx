@@ -77,16 +77,6 @@ OSystem::OSystem()
     myFeatures += "Cheats";
   #endif
 
-  // Get build info
-  ostringstream info;
-  SDL_version ver;
-  SDL_GetVersion(&ver);
-
-  info << "Build " << STELLA_BUILD << ", using SDL " << int(ver.major)
-       << "." << int(ver.minor) << "."<< int(ver.patch)
-       << " [" << BSPF::ARCH << "]";
-  myBuildInfo = info.str();
-
   mySettings = MediaFactory::createSettings(*this);
   myRandom = make_ptr<Random>(*this);
 }
@@ -104,7 +94,11 @@ bool OSystem::create()
   ostringstream buf;
   buf << "Stella " << STELLA_VERSION << endl
       << "  Features: " << myFeatures << endl
-      << "  " << myBuildInfo << endl << endl
+      << "  Build: " << STELLA_BUILD << " [" << BSPF::ARCH << "]" << endl
+      << "  Video: " << MediaFactory::getVideoInfo() << endl
+      << "  Audio: " << MediaFactory::getAudioInfo() << endl
+      << "  Events: " << MediaFactory::getEventInfo() << endl
+      << endl << endl
       << "Base directory:       '"
       << FilesystemNode(myBaseDir).getShortPath() << "'" << endl
       << "Configuration file:   '"

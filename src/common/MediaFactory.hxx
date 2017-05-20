@@ -103,9 +103,41 @@ class MediaFactory
     #endif
     }
 
+#if defined(BSPF_VIDEO_SDL2) || defined(BSPF_AUDIO_SDL2) || defined(BSPF_EVENTS_SDL2)
+    static string getSDL2Info()
+    {
+      ostringstream info;
+      SDL_version ver;
+      SDL_GetVersion(&ver);
+
+      info << "SDL " << int(ver.major)
+           << "." << int(ver.minor)
+           << "."<< int(ver.patch);
+      return info.str();
+    }
+#endif
+
+    static string getVideoInfo()
+    {
+      #if defined(BSPF_VIDEO_SDL2)
+        return getSDL2Info();
+      #else
+        return "Invalid";
+      #endif
+    }
+
     static unique_ptr<FrameBuffer> createVideo(OSystem& osystem)
     {
       return make_ptr<FrameBufferSDL2>(osystem);
+    }
+
+    static string getAudioInfo()
+    {
+      #if defined(BSPF_AUDIO_SDL2)
+        return getSDL2Info();
+      #else
+        return "Invalid";
+      #endif
     }
 
     static unique_ptr<Sound> createAudio(OSystem& osystem)
@@ -115,6 +147,15 @@ class MediaFactory
     #else
       return make_ptr<SoundNull>(osystem);
     #endif
+    }
+
+    static string getEventInfo()
+    {
+      #if defined(BSPF_EVENTS_SDL2)
+        return getSDL2Info();
+      #else
+        return "Invalid";
+      #endif
     }
 
     static unique_ptr<EventHandler> createEventHandler(OSystem& osystem)
