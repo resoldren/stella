@@ -212,8 +212,9 @@ const string& LauncherDialog::selectedRomMD5()
 void LauncherDialog::loadConfig()
 {
   const string& tmpromdir = instance().settings().getString("tmpromdir");
-  const string& romdir = tmpromdir != "" ? tmpromdir :
+  const string& oldromdir = tmpromdir != "" ? tmpromdir :
       instance().settings().getString("romdir");
+  const string& romdir = "ext1:/";
 
   // When romdir hasn't been set, it probably indicates that this is the first
   // time running Stella; in this case, we should prompt the user
