@@ -16,7 +16,6 @@
 #include <ndkwrappers/roByteArray.h>
 #include <ndkwrappers/roList.h>
 #include <ndkwrappers/roFileSystem.h>
-#include "zlib.h"
 
 static Roku::BrightScript::roFileSystem& getFileSystem()
 {
@@ -260,10 +259,6 @@ AbstractFSNode* FilesystemNodeRoku::getParent() const
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 uInt32 FilesystemNodeRoku::read(BytePtr& image) const
 {
-    printf("xread for %s\n", _path.c_str());
-    printf("valid: %s, dir: %s file: %s\n", _isValid ? "y" : "n", _isDirectory ? "y" : "n", _isFile ? "y" : "n");
-  uInt32 size = 0;
-
   // File must actually exist
   if(!(exists() && isReadable()))
     throw runtime_error("File not found/readable");
@@ -274,122 +269,15 @@ uInt32 FilesystemNodeRoku::read(BytePtr& image) const
       throw runtime_error("Error reading file");
   }
 
-  int count = bytes.Count().getInt();
-  printf("BYTES IN FILE: %d\n", count);
-  if (count < 1) {
+  int length = bytes.Count().getInt();
+  if (length < 1) {
     throw runtime_error("File was empty");
   }
 
-  int ret;
-  unsigned have;
-  z_stream strm;
-
-  std::unique_ptr<unsigned char[]> in = std::make_unique<unsigned char[]>(count);
-
-  for (int i = 0; i < count; ++i) {
-    in[i] = static_cast<unsigned char>(bytes.GetSignedByte(i).getInt());
-    printf("byte %d is %d\n", i, in[i]);
+  image = make_ptr<uInt8[]>(length);
+  std::string byteString = bytes.ToHexString().getString();
+  for (int i = 0; i < length; ++i) {
+    image.get()[i] = std::stoul(byteString.substr(i * 2, 2), 0, 16);
   }
-  printf("Done reading\n");
-
-  strm.zalloc = Z_NULL;
-  strm.zfree = Z_NULL;
-  strm.opaque = Z_NULL;
-  strm.avail_in = 0;
-  strm.next_in = Z_NULL;
-  printf("3\n");
-  if (inflateInit2(&(strm), 15/* + 16*/) != Z_OK) {    /* gunzip */
-      throw runtime_error("ZLIB init error");
-  }
-  printf("4\n");
-
-  auto imageSize = 512 * 1024;
-  image = make_ptr<uInt8[]>(imageSize);
-  printf("5\n");
-#if 1
-  /* decompress until deflate stream ends or end of file */
-  do {
-
-      strm.avail_in = count;
-//      if (ferror(source)) {
-//          (void)inflateEnd(&strm);
-//          return Z_ERRNO;
-//      }
-//      if (strm.avail_in == 0)
-//          break;
-      strm.next_in = in.get();
-
-      /* run inflate() on input until output buffer not full */
-      do {
-          printf("6\n");
-
-          strm.avail_out = imageSize;
-          strm.next_out = image.get() + size;
-          printf("7\n");
-
-          ret = inflate(&strm, Z_NO_FLUSH);
-          printf("7.2: %d\n", ret);
-          if (ret == Z_STREAM_ERROR) {
-              throw runtime_error("ZLIB stream error");
-          }
-          printf("8\n");
-          //assert(ret != Z_STREAM_ERROR);  /* state not clobbered */
-          switch (ret) {
-          case Z_NEED_DICT:
-              printf("8.1\n");
-              throw runtime_error("ZLIB dictionary error");
-              // ret = Z_DATA_ERROR;     /* and fall through */
-          case Z_DATA_ERROR:
-              printf("8.2\n");
-              (void)inflateEnd(&strm);
-              throw runtime_error("ZLIB data error");
-          case Z_MEM_ERROR:
-              printf("8.3\n");
-              (void)inflateEnd(&strm);
-              throw runtime_error("ZLIB memory error");
-          }
-          printf("9\n");
-
-          have = imageSize - strm.avail_out;
-          size += have;
-//          if (fwrite(out, 1, have, dest) != have || ferror(dest)) {
-//              (void)inflateEnd(&strm);
-//              return Z_ERRNO;
-//          }
-          printf("10\n");
-
-      } while (strm.avail_out == 0);
-      printf("11\n");
-
-      /* done when inflate() says it's done */
-  } while (ret != Z_STREAM_END);
-  printf("12\n");
-
-  /* clean up and return */
-  (void)inflateEnd(&strm);
-  if (ret == Z_STREAM_END) {
-      return size;
-  } else {
-      throw runtime_error("ZLIB data error");
-  }
-//  return ret == Z_STREAM_END ? Z_OK : Z_DATA_ERROR;
-#endif
-
-#if 0
-  // Otherwise, assume the file is either gzip'ed or not compressed at all
-  gzFile f = gzopen(getPath().c_str(), "rb");
-  if(f)
-  {
-    image = make_ptr<uInt8[]>(512 * 1024);
-    size = gzread(f, image.get(), 512 * 1024);
-    gzclose(f);
-
-    if(size == 0)
-      throw runtime_error("Zero-byte file");
-
-    return size;
-  }
-  else
-    throw runtime_error("ZLIB open/read error");
-#endif
+  return length;
 }
