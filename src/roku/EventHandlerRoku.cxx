@@ -18,7 +18,8 @@ EventHandlerRoku::EventHandlerRoku(OSystem& osystem)
 	: EventHandler(osystem),
 	  myInputContext(new Roku::Input::Context()),
 	  addedJoystick(false),
-	  prevButtons(0)
+	  prevButtons0(0),
+	  prevButtons1(0)
 {
 }
 
@@ -48,10 +49,10 @@ uInt32 EventHandlerRoku::resetEventsCallback(uInt32 interval, void* param)
 void EventHandlerRoku::enableTextEvents(bool enable)
 {
 #if 0
-  if(enable)
-    SDL_StartTextInput();
-  else
-    SDL_StopTextInput();
+	if(enable)
+		SDL_StartTextInput();
+	else
+		SDL_StopTextInput();
 #endif
 }
 
@@ -72,94 +73,106 @@ void EventHandlerRoku::pollEvent()
 		addedJoystick = true;
 	}
 	Roku::Input::Event e;
-	Roku::Input::ControllerState state;
-	myInputContext->getControllerState(0, state);
-	uint32_t btns = state.buttons();
+	Roku::Input::ControllerState state0;
+	Roku::Input::ControllerState state1;
+	myInputContext->getControllerState(0, state0);
+	myInputContext->getControllerState(1, state1);
+	uint32_t btns0 = state0.buttons();
+	uint32_t btns1 = state1.buttons();
 
 #if 0
+	printf("state: %d\n", state());
 	switch (state()) {
-		case EMULATE:
-			break;
-		default:
-			break;
+	case S_EMULATE: // Rotated for sure
+		break;
+	default:
+		break;
 	}
 #endif
-	if (btns != prevButtons) {
+
+#define CHECKEVENT(JOYNUM, _rokubutton, _stellaevent)					\
+	if (diff(prevButtons ## JOYNUM, btns ## JOYNUM, _rokubutton, pressed)) { \
+		handleEvent(_stellaevent, pressed);								\
+	}
+
+#define CHECKKEYEVENT(JOYNUM, _rokubutton, _stellakeyevent, _stellakeymod) \
+	if (diff(prevButtons ## JOYNUM, btns ## JOYNUM, _rokubutton, pressed)) { \
+		handleKeyEvent(_stellakeyevent, _stellakeymod, pressed);		\
+	}
+
+	//////////////
+	// TODO - try to use events everywhere instead of keys
+	//////////////
+
+	if (btns0 != prevButtons0 || btns1 != prevButtons1) {
+		bool playMode = state() == S_EMULATE;
 		bool pressed = false;
-		if (diff(prevButtons, btns, ROKU_INPUT_BUTTON_RIGHT, pressed)) {
-			handleKeyEvent(StellaKey(KBDK_UP), KBDM_NONE, pressed);
-			handleKeyEvent(StellaKey(KBDK_W), KBDM_NONE, pressed);
-			handleKeyEvent(StellaKey(KBDK_I), KBDM_NONE, pressed);
-			handleJoyAxisEvent(1, 1, -32000);
+		if (btns0 != prevButtons0) {
+			if (playMode) {
+				CHECKEVENT(0, ROKU_INPUT_BUTTON_RIGHT, Event::JoystickZeroUp);
+//				handleJoyAxisEvent(1, 1, -32000);
+//				handleKeyEvent(StellaKey(KBDK_W), KBDM_NONE, pressed);
+//				handleKeyEvent(StellaKey(KBDK_I), KBDM_NONE, pressed);
+				CHECKEVENT(0, ROKU_INPUT_BUTTON_LEFT, Event::JoystickZeroDown);
+//				handleKeyEvent(StellaKey(KBDK_S), KBDM_NONE, pressed);
+//				handleKeyEvent(StellaKey(KBDK_K), KBDM_NONE, pressed);
+//				handleJoyAxisEvent(1, 1, 32000);
+				CHECKEVENT(0, ROKU_INPUT_BUTTON_UP, Event::JoystickZeroLeft);
+//				handleKeyEvent(StellaKey(KBDK_A), KBDM_NONE, pressed);
+//				handleKeyEvent(StellaKey(KBDK_J), KBDM_NONE, pressed);
+//				handleJoyAxisEvent(1, 0, -32000);
+				CHECKEVENT(0, ROKU_INPUT_BUTTON_DOWN, Event::JoystickZeroRight);
+//				handleKeyEvent(StellaKey(KBDK_D), KBDM_NONE, pressed);
+//				handleKeyEvent(StellaKey(KBDK_L), KBDM_NONE, pressed);
+//				handleJoyAxisEvent(1, 0, 32000);
+				CHECKEVENT(0, ROKU_INPUT_BUTTON_B, Event::JoystickZeroFire);
+				CHECKEVENT(0, ROKU_INPUT_BUTTON_A, Event::PauseMode);
+			} else {
+				CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_RIGHT, StellaKey(KBDK_UP), KBDM_NONE);
+				CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_LEFT, StellaKey(KBDK_DOWN), KBDM_NONE);
+				CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_UP, StellaKey(KBDK_LEFT), KBDM_NONE);
+				CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_DOWN, StellaKey(KBDK_RIGHT), KBDM_NONE);
+				CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_B, StellaKey(KBDK_RETURN), KBDM_NONE);
+				CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_A, StellaKey(KBDK_ESCAPE), KBDM_NONE);
+			}
+			CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_BACK, StellaKey(KBDK_ESCAPE), KBDM_NONE);
+			CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_INSTANT_REPLAY, StellaKey(KBDK_F2), KBDM_NONE); // RESET
+			CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_SELECT, StellaKey(KBDK_RETURN), KBDM_NONE);
+//			handleJoyEvent(1, 0, pressed);
+//            handleKeyEvent(StellaKey(KBDK_SPACE), KBDM_NONE, pressed); // << this seems to be the one to make pitfall jump
+			CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_INFO, StellaKey(KBDK_F2), KBDM_NONE); // RESET
+			CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_RWD, StellaKey(KBDK_TAB), KBDM_LSHIFT);
+			CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_FWD, StellaKey(KBDK_TAB), KBDM_NONE);
+			CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_PLAY, StellaKey(KBDK_F1), KBDM_NONE); // SELECT GAME?
+			prevButtons0 = btns0;
 		}
-		if (diff(prevButtons, btns, ROKU_INPUT_BUTTON_LEFT, pressed)) {
-			handleKeyEvent(StellaKey(KBDK_DOWN), KBDM_NONE, pressed);
-			handleKeyEvent(StellaKey(KBDK_S), KBDM_NONE, pressed);
-			handleKeyEvent(StellaKey(KBDK_K), KBDM_NONE, pressed);
-			handleJoyAxisEvent(1, 1, 32000);
+		if (btns1 != prevButtons1) {
+			if (playMode) {
+				CHECKEVENT(1, ROKU_INPUT_BUTTON_RIGHT, Event::JoystickOneUp);
+				CHECKEVENT(1, ROKU_INPUT_BUTTON_LEFT, Event::JoystickOneDown);
+				CHECKEVENT(1, ROKU_INPUT_BUTTON_UP, Event::JoystickOneLeft);
+				CHECKEVENT(1, ROKU_INPUT_BUTTON_DOWN, Event::JoystickOneRight);
+				CHECKEVENT(1, ROKU_INPUT_BUTTON_B, Event::JoystickOneFire);
+				CHECKEVENT(1, ROKU_INPUT_BUTTON_A, Event::PauseMode);
+			} else {
+				CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_RIGHT, StellaKey(KBDK_UP), KBDM_NONE);
+				CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_LEFT, StellaKey(KBDK_DOWN), KBDM_NONE);
+				CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_UP, StellaKey(KBDK_LEFT), KBDM_NONE);
+				CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_DOWN, StellaKey(KBDK_RIGHT), KBDM_NONE);
+				CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_B, StellaKey(KBDK_RETURN), KBDM_NONE);
+				CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_A, StellaKey(KBDK_ESCAPE), KBDM_NONE);
+			}
+			CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_BACK, StellaKey(KBDK_ESCAPE), KBDM_NONE);
+			CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_INSTANT_REPLAY, StellaKey(KBDK_F2), KBDM_NONE); // RESET
+			CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_SELECT, StellaKey(KBDK_RETURN), KBDM_NONE);
+			CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_INFO, StellaKey(KBDK_F2), KBDM_NONE); // RESET
+			CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_RWD, StellaKey(KBDK_TAB), KBDM_LSHIFT);
+			CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_FWD, StellaKey(KBDK_TAB), KBDM_NONE);
+			CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_PLAY, StellaKey(KBDK_F1), KBDM_NONE); // SELECT GAME?
+			prevButtons1 = btns1;
 		}
-		if (diff(prevButtons, btns, ROKU_INPUT_BUTTON_UP, pressed)) {
-			handleKeyEvent(StellaKey(KBDK_LEFT), KBDM_NONE, pressed);
-			handleKeyEvent(StellaKey(KBDK_A), KBDM_NONE, pressed);
-			handleKeyEvent(StellaKey(KBDK_J), KBDM_NONE, pressed);
-			handleJoyAxisEvent(1, 0, -32000);
-		}
-		if (diff(prevButtons, btns, ROKU_INPUT_BUTTON_DOWN, pressed)) {
-			handleKeyEvent(StellaKey(KBDK_RIGHT), KBDM_NONE, pressed);
-			handleKeyEvent(StellaKey(KBDK_D), KBDM_NONE, pressed);
-			handleKeyEvent(StellaKey(KBDK_L), KBDM_NONE, pressed);
-			handleJoyAxisEvent(1, 0, 32000);
-		}
-		if (diff(prevButtons, btns, ROKU_INPUT_BUTTON_BACK, pressed)) {
-			handleKeyEvent(StellaKey(KBDK_ESCAPE), KBDM_NONE, pressed);
-		}
-		if (diff(prevButtons, btns, ROKU_INPUT_BUTTON_INSTANT_REPLAY, pressed)) {
-			handleKeyEvent(StellaKey(KBDK_F2), KBDM_NONE, pressed); // RESET
-		}
-		if (diff(prevButtons, btns, ROKU_INPUT_BUTTON_SELECT, pressed)) {
-			handleKeyEvent(StellaKey(KBDK_RETURN), KBDM_NONE, pressed);
-			handleJoyEvent(1, 0, pressed);
-			handleKeyEvent(StellaKey(KBDK_SPACE), KBDM_NONE, pressed); // << this seems to be the one to make pitfall jump
-		}
-		if (diff(prevButtons, btns, ROKU_INPUT_BUTTON_INFO, pressed)) {
-			handleKeyEvent(StellaKey(KBDK_F2), KBDM_NONE, pressed); // RESET
-		}
-		if (diff(prevButtons, btns, ROKU_INPUT_BUTTON_RWD, pressed)) {
-			handleKeyEvent(StellaKey(KBDK_TAB), KBDM_LSHIFT, pressed);
-		}
-		if (diff(prevButtons, btns, ROKU_INPUT_BUTTON_PLAY, pressed)) {
-			handleKeyEvent(StellaKey(KBDK_F1), KBDM_NONE, pressed); // SELECT GAME?
-		}
-		if (diff(prevButtons, btns, ROKU_INPUT_BUTTON_FWD, pressed)) {
-			handleKeyEvent(StellaKey(KBDK_TAB), KBDM_NONE, pressed);
-		}
-		if (diff(prevButtons, btns, ROKU_INPUT_BUTTON_A, pressed)) {
-			handleKeyEvent(StellaKey(KBDK_ESCAPE), KBDM_NONE, pressed);
-		}
-		if (diff(prevButtons, btns, ROKU_INPUT_BUTTON_B, pressed)) {
-			handleKeyEvent(StellaKey(KBDK_RETURN), KBDM_NONE, pressed);
-			handleJoyEvent(1, 0, pressed);
-			handleKeyEvent(StellaKey(KBDK_SPACE), KBDM_NONE, pressed);
-		}
-		prevButtons = btns;
 	}
-	
-#if 0
-	if (btns & ROKU_INPUT_BUTTON_UP) { printf("DOWN: UP\n"); }
-	if (btns & ROKU_INPUT_BUTTON_LEFT) { printf("DOWN: LEFT\n"); }
-	if (btns & ROKU_INPUT_BUTTON_RIGHT) { printf("DOWN: RIGHT\n"); }
-	if (btns & ROKU_INPUT_BUTTON_DOWN) { printf("DOWN: DOWN\n"); }
-	if (btns & ROKU_INPUT_BUTTON_BACK) { printf("DOWN: BACK\n"); }
-	if (btns & ROKU_INPUT_BUTTON_INSTANT_REPLAY) { printf("DOWN: INSTANT_REPLAY\n"); }
-	if (btns & ROKU_INPUT_BUTTON_SELECT) { printf("DOWN: SELECT\n"); }
-	if (btns & ROKU_INPUT_BUTTON_INFO) { printf("DOWN: INFO\n"); }
-	if (btns & ROKU_INPUT_BUTTON_RWD) { printf("DOWN: RWD\n"); }
-	if (btns & ROKU_INPUT_BUTTON_PLAY) { printf("DOWN: PLAY\n"); }
-	if (btns & ROKU_INPUT_BUTTON_FWD) { printf("DOWN: FWD\n"); }
-	if (btns & ROKU_INPUT_BUTTON_A) { printf("DOWN: B\n"); }
-	if (btns & ROKU_INPUT_BUTTON_B) { printf("DOWN: B\n"); }
-#endif
-	
+
 #if 0
 	while (myInputContext->getEvent(e)) {
 		switch (e.type()) {
