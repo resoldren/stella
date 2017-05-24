@@ -110,7 +110,7 @@ FilesystemNodeRoku::FilesystemNodeRoku(const string& p, bool verify)
   // Expand '~' to the HOME environment variable
   if(_path[0] == '~') {
     if (_path.length() == 1)
-      _path = "/";
+      _path = "/ext1:";
     else
       _path.replace(0, 1, "");
   }
