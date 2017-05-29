@@ -18,8 +18,7 @@ EventHandlerRoku::EventHandlerRoku(OSystem& osystem)
 	: EventHandler(osystem),
 	  myInputContext(new Roku::Input::Context()),
 	  addedJoystick(false),
-	  prevButtons0(0),
-	  prevButtons1(0)
+	  prevButtons()
 {
 }
 
@@ -66,110 +65,147 @@ static bool diff(uint32_t prev, uint32_t now, uint32_t mask, bool& pressed)
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+#define CHECKEVENT(JOYNUM, _rokubutton, _stellaevent)					\
+	if (diff(prevButtons[JOYNUM], btns[JOYNUM], _rokubutton, pressed)) { \
+		handleEvent(_stellaevent, pressed);								\
+	}
+
+#define CHECKKEYEVENT(JOYNUM, _rokubutton, _stellakeyevent, _stellakeymod) \
+	if (diff(prevButtons[JOYNUM], btns[JOYNUM], _rokubutton, pressed)) { \
+		handleKeyEvent(_stellakeyevent, _stellakeymod, pressed);		\
+	}
+
 void EventHandlerRoku::pollEvent()
 {
+	static int primaryRemote = 0;
+	static int secondaryRemote = 1;
+	bool playMode = state() == S_EMULATE || state() == S_PAUSE;
+
+	// TODO - is this needed?
 	if (!addedJoystick) {
 		addJoystick(new JoystickRoku());
 		addedJoystick = true;
 	}
 	Roku::Input::Event e;
-	Roku::Input::ControllerState state0;
-	Roku::Input::ControllerState state1;
-	myInputContext->getControllerState(0, state0);
-	myInputContext->getControllerState(1, state1);
-	uint32_t btns0 = state0.buttons();
-	uint32_t btns1 = state1.buttons();
+	uint32_t btns[2];
+	bool anyChanges = false;
+	// Loop backwards in order to prefer remote 0 as primary in ties
+	for (int i = 1; i >= 0; --i) {
+		Roku::Input::ControllerState state;
+		myInputContext->getControllerState(i, state);
+		btns[i] = state.buttons();
+		if (btns[i] != prevButtons[i]) {
+			anyChanges = true;
 
-#if 0
-	printf("state: %d\n", state());
-	switch (state()) {
-	case S_EMULATE: // Rotated for sure
-		break;
-	default:
-		break;
-	}
-#endif
-
-#define CHECKEVENT(JOYNUM, _rokubutton, _stellaevent)					\
-	if (diff(prevButtons ## JOYNUM, btns ## JOYNUM, _rokubutton, pressed)) { \
-		handleEvent(_stellaevent, pressed);								\
-	}
-
-#define CHECKKEYEVENT(JOYNUM, _rokubutton, _stellakeyevent, _stellakeymod) \
-	if (diff(prevButtons ## JOYNUM, btns ## JOYNUM, _rokubutton, pressed)) { \
-		handleKeyEvent(_stellakeyevent, _stellakeymod, pressed);		\
+			// Last button pressed before emulation (!playMode) determines
+			// primary as it was probably the button that started the game
+			if (!playMode) {
+				primaryRemote = i;
+				secondaryRemote = 1 - i;
+			}
+		}
 	}
 
 	//////////////
 	// TODO - try to use events everywhere instead of keys
 	//////////////
+//	ConsoleLeftDiffA, ConsoleLeftDiffB,
+//	ConsoleRightDiffA, ConsoleRightDiffB,
+//	ConsoleSelect, ConsoleReset,
+//	ConsoleLeftDiffToggle, ConsoleRightDiffToggle
+//	Paddle...
 
-	if (btns0 != prevButtons0 || btns1 != prevButtons1) {
-		bool playMode = state() == S_EMULATE;
+//	UIUp, UIDown, UILeft, UIRight, UIHome, UIEnd, UIPgUp, UIPgDown,
+//	UISelect, UINavPrev, UINavNext, UIOK, UICancel, UIPrevDir,
+
+
+	if (anyChanges) {
 		bool pressed = false;
-		if (btns0 != prevButtons0) {
+		if (btns[primaryRemote] != prevButtons[primaryRemote]) {
 			if (playMode) {
-				CHECKEVENT(0, ROKU_INPUT_BUTTON_RIGHT, Event::JoystickZeroUp);
+				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_RIGHT, Event::JoystickZeroUp);
 //				handleJoyAxisEvent(1, 1, -32000);
 //				handleKeyEvent(StellaKey(KBDK_W), KBDM_NONE, pressed);
 //				handleKeyEvent(StellaKey(KBDK_I), KBDM_NONE, pressed);
-				CHECKEVENT(0, ROKU_INPUT_BUTTON_LEFT, Event::JoystickZeroDown);
+				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_LEFT, Event::JoystickZeroDown);
 //				handleKeyEvent(StellaKey(KBDK_S), KBDM_NONE, pressed);
 //				handleKeyEvent(StellaKey(KBDK_K), KBDM_NONE, pressed);
 //				handleJoyAxisEvent(1, 1, 32000);
-				CHECKEVENT(0, ROKU_INPUT_BUTTON_UP, Event::JoystickZeroLeft);
+				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_UP, Event::JoystickZeroLeft);
 //				handleKeyEvent(StellaKey(KBDK_A), KBDM_NONE, pressed);
 //				handleKeyEvent(StellaKey(KBDK_J), KBDM_NONE, pressed);
 //				handleJoyAxisEvent(1, 0, -32000);
-				CHECKEVENT(0, ROKU_INPUT_BUTTON_DOWN, Event::JoystickZeroRight);
+				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_DOWN, Event::JoystickZeroRight);
 //				handleKeyEvent(StellaKey(KBDK_D), KBDM_NONE, pressed);
 //				handleKeyEvent(StellaKey(KBDK_L), KBDM_NONE, pressed);
 //				handleJoyAxisEvent(1, 0, 32000);
-				CHECKEVENT(0, ROKU_INPUT_BUTTON_B, Event::JoystickZeroFire);
-				CHECKEVENT(0, ROKU_INPUT_BUTTON_A, Event::PauseMode);
+				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_B, Event::JoystickZeroFire);
+//				handleJoyEvent(1, 0, pressed);
+				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_A, StellaKey(KBDK_PAUSE), KBDM_NONE);
+//				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_A, Event::PauseMode);
+
+				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_BACK, StellaKey(KBDK_ESCAPE), KBDM_NONE);
+//				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_BACK, Event::MenuMode);
+				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_INSTANT_REPLAY, Event::ConsoleReset); // F2
+//				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_INSTANT_REPLAY, StellaKey(KBDK_F2), KBDM_NONE); // RESET
+				// CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_SELECT, Event::NONE); // SELECT is OK, which is next to arrows. It is too easy to hit by accident
+				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_PLAY, Event::ConsoleReset); // F2
+				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_INFO, Event::ConsoleLeftDiffToggle);
+				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_RWD, Event::ConsoleSelect); // F1
+				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_FWD, Event::ConsoleSelect); // F1
+//				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_SELECT, StellaKey(KBDK_RETURN), KBDM_NONE);
+//				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_INFO, StellaKey(KBDK_F2), KBDM_NONE); // RESET
+//				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_PLAY, StellaKey(KBDK_F1), KBDM_NONE); // SELECT GAME?
 			} else {
-				CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_RIGHT, StellaKey(KBDK_UP), KBDM_NONE);
-				CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_LEFT, StellaKey(KBDK_DOWN), KBDM_NONE);
-				CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_UP, StellaKey(KBDK_LEFT), KBDM_NONE);
-				CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_DOWN, StellaKey(KBDK_RIGHT), KBDM_NONE);
-				CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_B, StellaKey(KBDK_RETURN), KBDM_NONE);
-				CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_A, StellaKey(KBDK_ESCAPE), KBDM_NONE);
+//				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_RIGHT, Event::UIUp);
+//				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_LEFT, Event::UIDown);
+//				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_UP, Event::UILeft);
+//				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_DOWN, Event::UIRight);
+//				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_B, Event::UISelect);
+//				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_A, Event::UICancel);
+				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_RIGHT, StellaKey(KBDK_UP), KBDM_NONE);
+				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_LEFT, StellaKey(KBDK_DOWN), KBDM_NONE);
+				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_UP, StellaKey(KBDK_LEFT), KBDM_NONE);
+				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_DOWN, StellaKey(KBDK_RIGHT), KBDM_NONE);
+				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_SELECT, StellaKey(KBDK_RETURN), KBDM_NONE);
+				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_B, StellaKey(KBDK_RETURN), KBDM_NONE);
+				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_A, StellaKey(KBDK_ESCAPE), KBDM_NONE);
+				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_BACK, StellaKey(KBDK_ESCAPE), KBDM_NONE);
+//				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_BACK, Event::UICancel);
+				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_RWD, StellaKey(KBDK_TAB), KBDM_LSHIFT);
+				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_FWD, StellaKey(KBDK_TAB), KBDM_NONE);
 			}
-			CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_BACK, StellaKey(KBDK_ESCAPE), KBDM_NONE);
-			CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_INSTANT_REPLAY, StellaKey(KBDK_F2), KBDM_NONE); // RESET
-			CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_SELECT, StellaKey(KBDK_RETURN), KBDM_NONE);
-//			handleJoyEvent(1, 0, pressed);
-//            handleKeyEvent(StellaKey(KBDK_SPACE), KBDM_NONE, pressed); // << this seems to be the one to make pitfall jump
-			CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_INFO, StellaKey(KBDK_F2), KBDM_NONE); // RESET
-			CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_RWD, StellaKey(KBDK_TAB), KBDM_LSHIFT);
-			CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_FWD, StellaKey(KBDK_TAB), KBDM_NONE);
-			CHECKKEYEVENT(0, ROKU_INPUT_BUTTON_PLAY, StellaKey(KBDK_F1), KBDM_NONE); // SELECT GAME?
-			prevButtons0 = btns0;
+			prevButtons[primaryRemote] = btns[primaryRemote];
 		}
-		if (btns1 != prevButtons1) {
+		if (btns[secondaryRemote] != prevButtons[secondaryRemote]) {
 			if (playMode) {
-				CHECKEVENT(1, ROKU_INPUT_BUTTON_RIGHT, Event::JoystickOneUp);
-				CHECKEVENT(1, ROKU_INPUT_BUTTON_LEFT, Event::JoystickOneDown);
-				CHECKEVENT(1, ROKU_INPUT_BUTTON_UP, Event::JoystickOneLeft);
-				CHECKEVENT(1, ROKU_INPUT_BUTTON_DOWN, Event::JoystickOneRight);
-				CHECKEVENT(1, ROKU_INPUT_BUTTON_B, Event::JoystickOneFire);
-				CHECKEVENT(1, ROKU_INPUT_BUTTON_A, Event::PauseMode);
+				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_RIGHT, Event::JoystickOneUp);
+				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_LEFT, Event::JoystickOneDown);
+				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_UP, Event::JoystickOneLeft);
+				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_DOWN, Event::JoystickOneRight);
+				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_B, Event::JoystickOneFire);
+				CHECKKEYEVENT(secondaryRemote, ROKU_INPUT_BUTTON_A, StellaKey(KBDK_PAUSE), KBDM_NONE);
+				CHECKKEYEVENT(secondaryRemote, ROKU_INPUT_BUTTON_BACK, StellaKey(KBDK_ESCAPE), KBDM_NONE);
+				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_INSTANT_REPLAY, Event::ConsoleReset);
+				// CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_SELECT, Event::NONE); // SELECT is OK, which is next to arrows. It is too easy to hit by accident
+				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_PLAY, Event::ConsoleReset); // F2
+				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_INFO, Event::ConsoleRightDiffToggle);
+				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_RWD, Event::ConsoleSelect); // F1
+				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_FWD, Event::ConsoleSelect); // F1
 			} else {
-				CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_RIGHT, StellaKey(KBDK_UP), KBDM_NONE);
-				CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_LEFT, StellaKey(KBDK_DOWN), KBDM_NONE);
-				CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_UP, StellaKey(KBDK_LEFT), KBDM_NONE);
-				CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_DOWN, StellaKey(KBDK_RIGHT), KBDM_NONE);
-				CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_B, StellaKey(KBDK_RETURN), KBDM_NONE);
-				CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_A, StellaKey(KBDK_ESCAPE), KBDM_NONE);
+				CHECKKEYEVENT(secondaryRemote, ROKU_INPUT_BUTTON_RIGHT, StellaKey(KBDK_UP), KBDM_NONE);
+				CHECKKEYEVENT(secondaryRemote, ROKU_INPUT_BUTTON_LEFT, StellaKey(KBDK_DOWN), KBDM_NONE);
+				CHECKKEYEVENT(secondaryRemote, ROKU_INPUT_BUTTON_UP, StellaKey(KBDK_LEFT), KBDM_NONE);
+				CHECKKEYEVENT(secondaryRemote, ROKU_INPUT_BUTTON_DOWN, StellaKey(KBDK_RIGHT), KBDM_NONE);
+				CHECKKEYEVENT(secondaryRemote, ROKU_INPUT_BUTTON_SELECT, StellaKey(KBDK_RETURN), KBDM_NONE);
+				CHECKKEYEVENT(secondaryRemote, ROKU_INPUT_BUTTON_B, StellaKey(KBDK_RETURN), KBDM_NONE);
+				CHECKKEYEVENT(secondaryRemote, ROKU_INPUT_BUTTON_A, StellaKey(KBDK_ESCAPE), KBDM_NONE);
+				CHECKKEYEVENT(secondaryRemote, ROKU_INPUT_BUTTON_BACK, StellaKey(KBDK_ESCAPE), KBDM_NONE);
+				CHECKKEYEVENT(secondaryRemote, ROKU_INPUT_BUTTON_RWD, StellaKey(KBDK_TAB), KBDM_LSHIFT);
+				CHECKKEYEVENT(secondaryRemote, ROKU_INPUT_BUTTON_FWD, StellaKey(KBDK_TAB), KBDM_NONE);
 			}
-			CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_BACK, StellaKey(KBDK_ESCAPE), KBDM_NONE);
-			CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_INSTANT_REPLAY, StellaKey(KBDK_F2), KBDM_NONE); // RESET
-			CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_SELECT, StellaKey(KBDK_RETURN), KBDM_NONE);
-			CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_INFO, StellaKey(KBDK_F2), KBDM_NONE); // RESET
-			CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_RWD, StellaKey(KBDK_TAB), KBDM_LSHIFT);
-			CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_FWD, StellaKey(KBDK_TAB), KBDM_NONE);
-			CHECKKEYEVENT(1, ROKU_INPUT_BUTTON_PLAY, StellaKey(KBDK_F1), KBDM_NONE); // SELECT GAME?
-			prevButtons1 = btns1;
+			prevButtons[secondaryRemote] = btns[secondaryRemote];
 		}
 	}
 
@@ -181,35 +217,35 @@ void EventHandlerRoku::pollEvent()
 			printf("key: %s\n", e.type() == ROKU_INPUT_EVENT_TYPE_BUTTON_PRESSED ? "true" : "false");
 			switch (e.button()) {
 			case ROKU_INPUT_BUTTON_UP:
-			    printf("key up %d %d\n", KBDK_UP, StellaKey(KBDK_UP));
+				printf("key up %d %d\n", KBDK_UP, StellaKey(KBDK_UP));
 				handleKeyEvent(StellaKey(KBDK_UP), KBDM_NONE, e.type() == ROKU_INPUT_EVENT_TYPE_BUTTON_PRESSED);
 				handleKeyEvent(StellaKey(KBDK_W), KBDM_NONE, e.type() == ROKU_INPUT_EVENT_TYPE_BUTTON_PRESSED);
 				handleKeyEvent(StellaKey(KBDK_I), KBDM_NONE, e.type() == ROKU_INPUT_EVENT_TYPE_BUTTON_PRESSED);
 				handleJoyAxisEvent(1, 1, -32000);
 				break;
 			case ROKU_INPUT_BUTTON_DOWN:
-			    printf("key down %d %d\n", KBDK_DOWN, StellaKey(KBDK_DOWN));
+				printf("key down %d %d\n", KBDK_DOWN, StellaKey(KBDK_DOWN));
 				handleKeyEvent(StellaKey(KBDK_DOWN), KBDM_NONE, e.type() == ROKU_INPUT_EVENT_TYPE_BUTTON_PRESSED);
 				handleKeyEvent(StellaKey(KBDK_S), KBDM_NONE, e.type() == ROKU_INPUT_EVENT_TYPE_BUTTON_PRESSED);
 				handleKeyEvent(StellaKey(KBDK_K), KBDM_NONE, e.type() == ROKU_INPUT_EVENT_TYPE_BUTTON_PRESSED);
 				handleJoyAxisEvent(1, 1, 32000);
 				break;
 			case ROKU_INPUT_BUTTON_LEFT:
-			    printf("key left %d %d\n", KBDK_LEFT, StellaKey(KBDK_LEFT));
+				printf("key left %d %d\n", KBDK_LEFT, StellaKey(KBDK_LEFT));
 				handleKeyEvent(StellaKey(KBDK_LEFT), KBDM_NONE, e.type() == ROKU_INPUT_EVENT_TYPE_BUTTON_PRESSED);
 				handleKeyEvent(StellaKey(KBDK_A), KBDM_NONE, e.type() == ROKU_INPUT_EVENT_TYPE_BUTTON_PRESSED);
 				handleKeyEvent(StellaKey(KBDK_J), KBDM_NONE, e.type() == ROKU_INPUT_EVENT_TYPE_BUTTON_PRESSED);
 				handleJoyAxisEvent(1, 0, -32000);
 				break;
 			case ROKU_INPUT_BUTTON_RIGHT:
-			    printf("key right %d %d\n", KBDK_RIGHT, StellaKey(KBDK_RIGHT));
+				printf("key right %d %d\n", KBDK_RIGHT, StellaKey(KBDK_RIGHT));
 				handleKeyEvent(StellaKey(KBDK_RIGHT), KBDM_NONE, e.type() == ROKU_INPUT_EVENT_TYPE_BUTTON_PRESSED);
 				handleKeyEvent(StellaKey(KBDK_D), KBDM_NONE, e.type() == ROKU_INPUT_EVENT_TYPE_BUTTON_PRESSED);
 				handleKeyEvent(StellaKey(KBDK_L), KBDM_NONE, e.type() == ROKU_INPUT_EVENT_TYPE_BUTTON_PRESSED);
 				handleJoyAxisEvent(1, 0, 32000);
 				break;
 			case ROKU_INPUT_BUTTON_SELECT:
-			    printf("key return %d %d\n", KBDK_RETURN, StellaKey(KBDK_RETURN));
+				printf("key return %d %d\n", KBDK_RETURN, StellaKey(KBDK_RETURN));
 				handleJoyEvent(1, 0, e.type() == ROKU_INPUT_EVENT_TYPE_BUTTON_PRESSED ? 1 : 0);
 				 handleKeyEvent(StellaKey(KBDK_RETURN), KBDM_NONE, e.type() == ROKU_INPUT_EVENT_TYPE_BUTTON_PRESSED);
 				 handleKeyEvent(StellaKey(KBDK_SPACE), KBDM_NONE, e.type() == ROKU_INPUT_EVENT_TYPE_BUTTON_PRESSED);
@@ -220,7 +256,7 @@ void EventHandlerRoku::pollEvent()
 				handleKeyEvent(StellaKey(KBDK_F2), KBDM_NONE, e.type() == ROKU_INPUT_EVENT_TYPE_BUTTON_PRESSED);
 				break;
 			case ROKU_INPUT_BUTTON_BACK:
-			    printf("key esc %d %d\n", KBDK_ESCAPE, StellaKey(KBDK_ESCAPE));
+				printf("key esc %d %d\n", KBDK_ESCAPE, StellaKey(KBDK_ESCAPE));
 				handleKeyEvent(StellaKey(KBDK_ESCAPE), KBDM_NONE, e.type() == ROKU_INPUT_EVENT_TYPE_BUTTON_PRESSED);
 				break;
 			case ROKU_INPUT_BUTTON_FWD:

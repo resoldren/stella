@@ -53,8 +53,7 @@ class EventHandlerRoku : public EventHandler
     // SDL_Event myEvent;
 	Roku::Input::Context* myInputContext;
 	bool addedJoystick;
-	uint32_t prevButtons0;
-	uint32_t prevButtons1;
+	uint32_t prevButtons[2];
 
   private:
     // Following constructors and assignment operators not supported
