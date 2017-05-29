@@ -703,8 +703,10 @@ const VideoMode& FrameBuffer::getSavedVidMode(bool fullscreen)
 {
   EventHandler::State state = myOSystem.eventHandler().state();
 
+#ifdef WINDOWED_SUPPORT
   if(fullscreen)
   {
+#endif
     Int32 i = getCurrentDisplayIndex();
     if(i < 0)
     {
@@ -712,9 +714,11 @@ const VideoMode& FrameBuffer::getSavedVidMode(bool fullscreen)
       i = 0;
     }
     myCurrentModeList = &myFullscreenModeLists[i];
+#ifdef WINDOWED_SUPPORT
   }
   else
     myCurrentModeList = &myWindowedModeList;
+#endif
 
   // Now select the best resolution depending on the state
   // UI modes (launcher and debugger) have only one supported resolution
