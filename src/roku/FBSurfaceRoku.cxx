@@ -28,7 +28,7 @@ FBSurfaceRoku::FBSurfaceRoku(FrameBufferRoku& buffer,
     myBlendAlpha(255),
     myStaticData(nullptr)
 {
-	//	printf("FBSurfaceRoku::FBSurfaceRoku %p (buf, %u, %u, %p)\n", this, width, height, data);
+  printf("FBSurfaceRoku::FBSurfaceRoku %p (buf, %u, %u, %p)\n", this, width, height, data);
   createSurface(width, height, data);
 }
 
@@ -137,23 +137,25 @@ bool FBSurfaceRoku::render()
 {
   if(mySurfaceIsDirty && myIsVisible)
   {
-	  //	printf("FBSurfaceRoku::render %p ()\n", this);
-//cerr << "src: x=" << mySrcR.x << ", y=" << mySrcR.y << ", w=" << mySrcR.w << ", h=" << mySrcR.h << endl;
-//cerr << "dst: x=" << myDstR.x << ", y=" << myDstR.y << ", w=" << myDstR.w << ", h=" << myDstR.h << endl;
-
- 	myBitmap->Unlock();
+#if 0
+	  	printf("FBSurfaceRoku::render %p ()\n", this);
+		cerr << "src: x=" << mySrcGUIR.x() << ", y=" << mySrcGUIR.y() << ", w=" << mySrcGUIR.width() << ", h=" << mySrcGUIR.height() << endl;
+		cerr << "dst: x=" << myDstGUIR.x() << ", y=" << myDstGUIR.y() << ", w=" << myDstGUIR.width() << ", h=" << myDstGUIR.height() << endl;
+#endif
+    myBitmap->Unlock();
 	// SDL_UpdateTexture(myTexture, &mySrcR, mySurface->pixels, mySurface->pitch);
 //    SDL_RenderCopy(myFB.myRenderer, myTexture, &mySrcR, &myDstR);
-	myFB.myScreen->DrawObject(
-		  R2D2::RoRect(myDstGUIR.x(), myDstGUIR.y(), myDstGUIR.width(), myDstGUIR.height()),
+#if 1
+    myFB.myScreen->DrawObject(
+          R2D2::RoRect(myDstGUIR.x(), myDstGUIR.y(), myDstGUIR.width(), myDstGUIR.height()),
 		  *myBitmap,
-		  R2D2::RoRect(mySrcGUIR.x(), mySrcGUIR.y(), mySrcGUIR.width(), mySrcGUIR.height()));
-	auto newp = reinterpret_cast<uInt32*>(myBitmap->Lock(true));
+          R2D2::RoRect(mySrcGUIR.x(), mySrcGUIR.y(), mySrcGUIR.width(), mySrcGUIR.height()));
+#endif
+    auto newp = reinterpret_cast<uInt32*>(myBitmap->Lock(true));
 	if (newp != myPixels) {
 		//		printf("PIXELS CHANGED\n");
 		myPixels = newp;
 	}
-		  
     mySurfaceIsDirty = false;
 
     // Let postFrameUpdate() know that a change has been made

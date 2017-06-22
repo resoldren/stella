@@ -7,13 +7,19 @@
 #include <roku/RokuSndFxPcm.h>
 
 #include "TIASnd.hxx"
-#include "TIATables.hxx"
+// #include "TIATables.hxx"
 #include "FrameBuffer.hxx"
 #include "Settings.hxx"
 #include "System.hxx"
 #include "OSystem.hxx"
 #include "Console.hxx"
 #include "SoundRoku.hxx"
+
+#define THRESHHOLD 900
+#define MAXDELAY 1200
+
+static FILE *fdbg;
+static std::chrono::high_resolution_clock::time_point begin;
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SoundRoku::SoundRoku(OSystem& osystem)
@@ -28,10 +34,13 @@ SoundRoku::SoundRoku(OSystem& osystem)
     myIsMuted(true),
     myVolume(100),
 	myPlayer(nullptr),
-	myCallbackSamples(0)
+    myCallbackSamples(0),
+    myStopFlag(false)
 {
   myOSystem.logMessage("SoundRoku::SoundRoku started ...", 2);
   printf("SoundRoku::SoundRoku started ...\n");
+  begin = std::chrono::high_resolution_clock::now();
+  fdbg = fopen("/tmp/fdbg", "w");
 
   RokuSndFx_Err sfx_err = RokuSndFx_PcmCreate(&myPlayer);
   if (sfx_err != ROKU_SFX_ERR_OK) {
@@ -78,24 +87,23 @@ SoundRoku::SoundRoku(OSystem& osystem)
   }
   printf("RokuSndFx_PcmPrepare()\n");
 #if 1
-  int maxDelay = 1200;
-  sfx_err = RokuSndFx_PcmSetMaxDelay(myPlayer, maxDelay);
+  sfx_err = RokuSndFx_PcmSetMaxDelay(myPlayer, MAXDELAY);
   if(sfx_err != ROKU_SFX_ERR_OK) {
     ostringstream buf;
     buf << "SoundRoku::SoundRoku: RokuSndFx_PcmSetMaxDelay failed " << sfx_err << "\n";
     myOSystem.logMessage(buf.str(), 0);
     return;
   }
-  printf("RokuSndFx_PcmSetMaxDelay(%d)\n", maxDelay);
+  printf("RokuSndFx_PcmSetMaxDelay(%d)\n", MAXDELAY);
 #endif
-  sfx_err = RokuSndFx_PcmStart(myPlayer, 900);
+  sfx_err = RokuSndFx_PcmStart(myPlayer, THRESHHOLD);
   if(sfx_err != ROKU_SFX_ERR_OK) {
     ostringstream buf;
     buf << "SoundRoku::SoundRoku: RokuSndFx_PcmStart failed " << sfx_err << "\n";
     myOSystem.logMessage(buf.str(), 0);
     return;
   }
-  printf("RokuSndFx_PcmStart(%d)\n", 900);
+  printf("RokuSndFx_PcmStart(%d)\n", THRESHHOLD);
   
   RokuSndFx_PcmStatus status;
   sfx_err = RokuSndFx_PcmGetStatus(myPlayer, &status);
@@ -115,6 +123,7 @@ SoundRoku::SoundRoku(OSystem& osystem)
   printf("RokuSndFx_PcmSetBufferAvailCb(%d)\n", myCallbackSamples);
 #endif
 
+#if 0
   sfx_err = RokuSndFx_PcmSetPeriodCb(myPlayer, perCallback, static_cast<void*>(this));
   if(sfx_err != ROKU_SFX_ERR_OK) {
     ostringstream buf;
@@ -123,7 +132,8 @@ SoundRoku::SoundRoku(OSystem& osystem)
     return;
   }
   printf("RokuSndFx_PcmSetPeriodCb()\n");
-  
+#endif
+
   // TODO??
   myHardwareSamples = status.avail_max;
   myHardwareFrequency = rate;
@@ -141,6 +151,7 @@ SoundRoku::SoundRoku(OSystem& osystem)
   // TODO
   //  SDL_PauseAudio(1);
 
+  myThread = std::thread(&SoundRoku::processAudio, this);
   myOSystem.logMessage("SoundRoku::SoundRoku initialized", 2);
   printf("SoundRoku::SoundRoku initialized\n");
 }
@@ -149,6 +160,14 @@ SoundRoku::SoundRoku(OSystem& osystem)
 SoundRoku::~SoundRoku()
 {
   myOSystem.logMessage("SoundRoku::~SoundRoku", 2);
+  myStopFlag = true;
+  if (myThread.joinable()) {
+      try {
+          myThread.join();
+      } catch (std::exception const &e) {
+          printf("Error joining audio thread: %s\n", e.what());
+      }
+  }
   if (myPlayer) {
 	RokuSndFx_PcmDestroy(myPlayer);
     printf("RokuSndFx_PcmDestroy(%p)\n", myPlayer);
@@ -321,12 +340,26 @@ void SoundRoku::setFrameRate(float framerate)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void SoundRoku::set(uInt16 addr, uInt8 value, Int32 cycle)
 {
-	//  printf("SoundRoku::set(%u, %u, %d)\n", addr, value, cycle);
+    static auto setLast = std::chrono::high_resolution_clock::now();
+    auto setNow = std::chrono::high_resolution_clock::now();
+    auto setDistance = setNow - setLast;
+    static Int32 setCycles = 0;
+    static double setAmount = 0.0;
+    //  printf("SoundRoku::set(%u, %u, %d)\n", addr, value, cycle);
   // SDL_LockAudio();
 
   // First, calculate how many seconds would have past since the last
   // register write on a real 2600
+  setCycles += cycle - myLastRegisterSetCycle;
   double delta = double(cycle - myLastRegisterSetCycle) / 1193191.66666667;
+  setAmount += delta;
+  if (setDistance >= std::chrono::milliseconds(1000)) {
+    printf("%07lld: %gms(%d cycles) in %lldms\n", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()-begin).count(), setAmount,
+           setCycles, std::chrono::duration_cast<std::chrono::milliseconds>(setDistance).count());
+    setLast = setNow;
+    setAmount = 0.0;
+    setCycles = 0;
+  }
 
   // Now, adjust the time based on the frame rate the user has selected. For
   // the sound to "scale" correctly, we have to know the games real frame 
@@ -427,6 +460,103 @@ void SoundRoku::processFragment(Int16* stream, uInt32 length)
   }
 }
 
+void SoundRoku::processAudio()
+{
+//  static FILE* f = fopen("/tmp/out2.wav", "wb");
+  int sleep = 0;
+  while (!myStopFlag) {
+//    fprintf(fdbg, "%07lld: sleep for %d\n", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()-begin).count(), sleep);
+    std::this_thread::sleep_for(std::chrono::milliseconds(sleep));
+    sleep = 8;
+    RokuSndFx_Err sfx_err;
+    RokuSndFx_PcmStatus status;
+    sfx_err = RokuSndFx_PcmGetStatus(myPlayer, &status);
+    #ifdef CALLBACK_PRINT2
+      printf("status: (err=%d) state=%d delay=%d avail=%u avail_max=%u processed=%u ppdelay=%d\n",
+             sfx_err, status.state, status.delay, status.avail, status.avail_max, status.processed, status.pp_delay);
+    #endif
+    if (status.state == 5) {
+      auto now = std::chrono::high_resolution_clock::now();
+      fprintf(fdbg, "************************************************\n");
+      fprintf(fdbg, "************************************************\n");
+      fprintf(fdbg, "************************************************\n");
+      fprintf(fdbg, "%07lld: SoundRoku::SoundRoku: RokuSndFx_PcmResume called\n", std::chrono::duration_cast<std::chrono::milliseconds>(now-begin).count());
+      fprintf(fdbg, "************************************************\n");
+      fprintf(fdbg, "************************************************\n");
+      fprintf(fdbg, "************************************************\n");
+      printf("************************************************\n");
+      printf("%07lld: SoundRoku::SoundRoku: RokuSndFx_PcmResume called\n", std::chrono::duration_cast<std::chrono::milliseconds>(now-begin).count());
+      sfx_err = RokuSndFx_PcmResume(myPlayer, THRESHHOLD);
+      if (sfx_err != ROKU_SFX_ERR_OK) {
+        printf("SoundRoku::SoundRoku: RokuSndFx_PcmResume failed %d\n", sfx_err);
+      }
+    }
+#if 1
+    //  uint8_t* buffer = nullptr;
+    //  uint32_t avail = 0;
+    //  sfx_err = RokuSndFx_PcmGetBuffer(myPlayer, &buffer, &avail);
+    //  if (sfx_err != ROKU_SFX_ERR_OK) {
+    //	  printf("SoundRoku::SoundRoku: RokuSndFx_PcmGetBuffer failed %d\n", sfx_err);
+    //	  continue;
+    //  }
+    double soundAvailable = myRegWriteQueue.duration();
+    int framesAvailable = soundAvailable / myFrameDuration - 0; //10;
+    if (framesAvailable < 0) {
+      framesAvailable = 0;
+    }
+    uint32_t write = framesAvailable; // myCallbackSamples; // avail;
+    if (write > 512) {
+        write = 512;
+    }
+    //  if (write + status.delay < 1000) {
+    //	  write = 1000 - status.delay;
+    //  }
+    if (write > status.avail) {
+      write = status.avail;
+    }
+    if (!write) {
+      sleep = 4;
+      auto now = std::chrono::high_resolution_clock::now();
+      fprintf(fdbg, "%07lld: c: write=%u avail=%u sAvail=%g, sAvail2=N/A fAvail=%d\n",
+             std::chrono::duration_cast<std::chrono::milliseconds>(now-begin).count(),
+             write, status.avail, soundAvailable, framesAvailable);
+      continue;
+    }
+    Int16* stream = new Int16[write];
+
+    if(myIsEnabled)
+    {
+      //	   printf("a: write=%u avail=%u sAvail=%g, fAvail=%d\n", write, status.avail, soundAvailable, framesAvailable);
+      // The callback is requesting 8-bit (unsigned) data, but the TIA sound
+      // emulator deals in 16-bit (signed) data
+      // So, we need to convert the pointer and half the length
+      processFragment(stream, write);
+      double soundAvailable2 = myRegWriteQueue.duration();
+      auto now = std::chrono::high_resolution_clock::now();
+      //fprintf(fdbg, "%07lld: a: write=%u avail=%u sAvail=%g, sAvail2=%g fAvail=%d\n",
+      //       std::chrono::duration_cast<std::chrono::milliseconds>(now-begin).count(),
+      //       write, status.avail, soundAvailable, soundAvailable2, framesAvailable);
+      //fflush(fdbg);
+    }
+    else {
+      auto now = std::chrono::high_resolution_clock::now();
+      fprintf(fdbg, "%07lld: b: write=%u avail=%u sAvail=%g, fAvail=%d\n",
+             std::chrono::duration_cast<std::chrono::milliseconds>(now-begin).count(),
+             write, status.avail, soundAvailable, framesAvailable);
+      memset(stream, 0, write * 2);  // Write 'silence'
+    }
+    sfx_err = RokuSndFx_PcmWrite(myPlayer, (uint8_t*)stream, write / 2);
+//    fwrite(stream, 1, write * 2, f);
+//    fflush(f);
+    if (sfx_err != ROKU_SFX_ERR_OK) {
+      printf("SoundRoku::SoundRoku: RokuSndFx_PcmWrite failed %d\n", sfx_err);
+      continue;
+    }
+    delete[] stream;
+#endif
+  }
+}
+
 // #define CALLBACK_PRINT
 // #define CALLBACK_PRINT2
 
@@ -443,7 +573,14 @@ void SoundRoku::perCallback(void* udata)
 		 sfx_err, status.state, status.delay, status.avail, status.avail_max, status.processed, status.pp_delay);
 #endif
   if (status.state == 5) {
-	  sfx_err = RokuSndFx_PcmResume(sound->myPlayer, 900);
+      printf("************************************************\n");
+      printf("************************************************\n");
+      printf("************************************************\n");
+      printf("SoundRoku::SoundRoku: RokuSndFx_PcmResume called\n");
+      printf("************************************************\n");
+      printf("************************************************\n");
+      printf("************************************************\n");
+      sfx_err = RokuSndFx_PcmResume(sound->myPlayer, THRESHHOLD);
       if (sfx_err != ROKU_SFX_ERR_OK) {
 		  printf("SoundRoku::SoundRoku: RokuSndFx_PcmResume failed %d\n", sfx_err);
 	  }
@@ -457,7 +594,7 @@ void SoundRoku::perCallback(void* udata)
   //	  return;
   //  }
   double soundAvailable = sound->myRegWriteQueue.duration();
-  int framesAvailable = soundAvailable / sound->myFrameDuration - 10;
+  int framesAvailable = soundAvailable / sound->myFrameDuration - 0; //10;
   if (framesAvailable < 0) {
 	  framesAvailable = 0;
   }
@@ -480,12 +617,12 @@ void SoundRoku::perCallback(void* udata)
     // emulator deals in 16-bit (signed) data
     // So, we need to convert the pointer and half the length
 	  sound->processFragment(stream, write * 2);
-	  double soundAvailable2 = sound->myRegWriteQueue.duration();
-	  // printf("a: write=%u avail=%u sAvail=%g, sAvail2=%g fAvail=%d\n", write, status.avail, soundAvailable, soundAvailable2, framesAvailable);
+      double soundAvailable2 = sound->myRegWriteQueue.duration();
+      printf("a: write=%u avail=%u sAvail=%g, sAvail2=%g fAvail=%d\n", write, status.avail, soundAvailable, soundAvailable2, framesAvailable);
   }
   else {
-	  //	   printf("b: write=%u avail=%u sAvail=%g, fAvail=%d\n", write, status.avail, soundAvailable, framesAvailable);
-	  //    memset(stream, 0, write * 2 * 2);  // Write 'silence'
+      printf("b: write=%u avail=%u sAvail=%g, fAvail=%d\n", write, status.avail, soundAvailable, framesAvailable);
+      memset(stream, 0, write * 2 * 2);  // Write 'silence'
   }
   sfx_err = RokuSndFx_PcmWrite(sound->myPlayer, (uint8_t*)stream, write);
   fwrite(stream, 1, write * 2 * 2, f);
@@ -672,6 +809,7 @@ double SoundRoku::RegWriteQueue::duration() const
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void SoundRoku::RegWriteQueue::enqueue(const RegWrite& info)
 {
+//  fprintf(fdbg, "%07lld: enqueue %g\n", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()-begin).count(), info.delta);
   // If an attempt is made to enqueue more than the queue can hold then
   // we'll enlarge the queue's capacity.
   if(mySize == myCapacity)

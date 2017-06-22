@@ -42,6 +42,8 @@
 
 #include "M6502.hxx"
 
+#include <chrono>
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 M6502::M6502(const Settings& settings)
   : myExecutionStatus(0),
@@ -162,8 +164,12 @@ inline void M6502::poke(uInt16 address, uInt8 value)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 bool M6502::execute(uInt32 number)
 {
+  std::string code = "?";
+  auto initNumber = number;
+  auto start = std::chrono::high_resolution_clock::now();
   // Clear all of the execution status bits except for the fatal error bit
   myExecutionStatus &= FatalErrorBit;
+  bool ans;
 
   // Loop until execution is stopped or a fatal error occurs
   for(;;)
@@ -226,23 +232,34 @@ bool M6502::execute(uInt32 number)
     if(myExecutionStatus & StopExecutionBit)
     {
       // Yes, so answer that everything finished fine
-      return true;
+        code = "A";
+      ans = true; break;
+      // return true;
     }
 
     // See if a fatal error has occured
     if(myExecutionStatus & FatalErrorBit)
     {
       // Yes, so answer that something when wrong
-      return false;
+        code = "B";
+      ans = false; break;
+      // return false;
     }
 
     // See if we've executed the specified number of instructions
     if(number == 0)
     {
       // Yes, so answer that everything finished fine
-      return true;
+        code = "C";
+      ans = true; break;
+      // return true;
     }
   }
+#if 0
+  printf("execute: %05lldus for %d(%d)instr [%s]\n", (long long int)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-start).count(),
+         initNumber - number, initNumber, code.c_str());
+#endif
+  return ans;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

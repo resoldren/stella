@@ -10,6 +10,7 @@ class OSystem;
 #include "bspf.hxx"
 #include "TIASnd.hxx"
 #include "Sound.hxx"
+#include <thread>
 
 class SoundRoku : public Sound
 {
@@ -273,6 +274,8 @@ class SoundRoku : public Sound
     static void callback(void* udata);//, uInt8* stream, int len);
     static void perCallback(void* udata);
 	int myCallbackSamples;
+    bool myStopFlag;
+    std::thread myThread;
 
     // Following constructors and assignment operators not supported
     SoundRoku() = delete;
@@ -280,6 +283,8 @@ class SoundRoku : public Sound
     SoundRoku(SoundRoku&&) = delete;
     SoundRoku& operator=(const SoundRoku&) = delete;
     SoundRoku& operator=(SoundRoku&&) = delete;
+
+    void processAudio();
 };
 
 #endif

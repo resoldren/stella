@@ -191,6 +191,8 @@ void EventHandler::toggleSAPortOrder()
 #endif
 }
 
+#include <chrono>
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void EventHandler::poll(uInt64 time)
 {

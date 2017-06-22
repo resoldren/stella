@@ -244,19 +244,28 @@ FBInitStatus OSystem::createFrameBuffer()
     case EventHandler::S_PAUSE:
     case EventHandler::S_MENU:
     case EventHandler::S_CMDMENU:
-      if((fbstatus = myConsole->initializeVideo()) != kSuccess)
+      if((fbstatus = myConsole->initializeVideo()) != kSuccess) 
+      {
+        printf("fbstatus1: %d\n", (int)fbstatus);
         return fbstatus;
+	  }
       break;  // S_EMULATE, S_PAUSE, S_MENU, S_CMDMENU
 
     case EventHandler::S_LAUNCHER:
       if((fbstatus = myLauncher->initializeVideo()) != kSuccess)
+      {
+        printf("fbstatus2: %d\n", (int)fbstatus);
         return fbstatus;
+	  }
       break;  // S_LAUNCHER
 
 #ifdef DEBUGGER_SUPPORT
     case EventHandler::S_DEBUGGER:
       if((fbstatus = myDebugger->initializeVideo()) != kSuccess)
+      {
+        printf("fbstatus3: %d\n", (int)fbstatus);
         return fbstatus;
+	  }
       break;  // S_DEBUGGER
 #endif
 
@@ -264,6 +273,7 @@ FBInitStatus OSystem::createFrameBuffer()
       logMessage("ERROR: Unknown emulation state in createFrameBuffer()", 0);
       break;
   }
+        printf("fbstatus4: %d\n", (int)fbstatus);
   return fbstatus;
 }
 

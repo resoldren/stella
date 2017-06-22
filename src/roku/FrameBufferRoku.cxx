@@ -31,7 +31,19 @@ FrameBufferRoku::FrameBufferRoku(OSystem& osystem)
 	//    myWindow(nullptr),
 	//    myRenderer(nullptr),
     myGraphics(R2D2::RoGraphics::Create()),
-	myScreen(myGraphics->CreateScreen(1280, 720, true)),
+
+	myScreen(myGraphics->CreateScreen(378, 213, true)), // SMALLEST 16x9
+
+	//myScreen(myGraphics->CreateScreen(426, 240, true)), // OAKY
+	//myScreen(myGraphics->CreateScreen(394, 222, true)), // OKAY
+	// myScreen(myGraphics->CreateScreen(362, 204, true)), // JUST TOO SMALL
+	//myScreen(myGraphics->CreateScreen(320, 180, true)), // NO GO
+	//myScreen(myGraphics->CreateScreen(213, 120, true)), // NO GO
+	
+	// myScreen(myGraphics->CreateScreen(852, 480, true)), // OKAY
+	
+	//myScreen(myGraphics->CreateScreen(160, 192, true)), // NO GO
+	//myScreen(myGraphics->CreateScreen(1280, 720, true)), // OKAY
     myDirtyFlag(true)
 {
 	//	printf("FrameBufferRoku::FrameBufferRoku %p ()\n", this);
@@ -341,7 +353,7 @@ void FrameBufferRoku::setWindowIcon()
 unique_ptr<FBSurface> FrameBufferRoku::createSurface(uInt32 w, uInt32 h,
                                           const uInt32* data) const
 {
-	//	printf("FrameBufferRoku::createSurface %p (%u, %u, %p)\n", this, w, h, data);
+  printf("FrameBufferRoku::createSurface %p (%u, %u, %p)\n", this, w, h, data);
   return make_ptr<FBSurfaceRoku>(const_cast<FrameBufferRoku&>(*this), w, h, data);
 }
 

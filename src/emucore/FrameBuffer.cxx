@@ -178,8 +178,11 @@ FBInitStatus FrameBuffer::createDisplay(const string& title,
   // Make sure this mode is even possible
   // We only really need to worry about it in non-windowed environments,
   // where requesting a window that's too large will probably cause a crash
-  if(myDesktopSize.w < width || myDesktopSize.h < height)
+  if(myDesktopSize.w < width || myDesktopSize.h < height) {
+	  printf("Couldn't create display %u x %x\n", width, height);
+	  printf("Couldn't create display %u x %u < %u x %u\n", width, height, myDesktopSize.w, myDesktopSize.h);
     return kFailTooLarge;
+  }
 #endif
 
   // Set the available video modes for this framebuffer
@@ -211,8 +214,10 @@ FBInitStatus FrameBuffer::createDisplay(const string& title,
       return kFailNotSupported;
     }
   }
-  else
+  else {
+	  printf("Couldn't create 2 %u x %u < %u x %u\n", width, height, mode.screen.w, mode.screen.h);
     return kFailTooLarge;
+  }
 
   // Erase any messages from a previous run
   myMsg.counter = 0;

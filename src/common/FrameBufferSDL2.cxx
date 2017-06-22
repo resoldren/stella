@@ -80,11 +80,17 @@ void FrameBufferSDL2::queryHardware(vector<GUI::Size>& displays,
   // First get the maximum windowed desktop resolution
   SDL_DisplayMode display;
   int maxDisplays = SDL_GetNumVideoDisplays();
+#if 0
   for(int i = 0; i < maxDisplays; ++i)
   {
     SDL_GetDesktopDisplayMode(i, &display);
     displays.emplace_back(display.w, display.h);
   }
+#else
+  displays.emplace_back(181, 102);
+  //  displays.emplace_back(362, 204);
+  //  displays.emplace_back(378, 213);
+#endif
 
   // For now, supported render types are hardcoded; eventually, SDL may
   // provide a method to query this
@@ -287,6 +293,7 @@ void FrameBufferSDL2::setWindowIcon()
 unique_ptr<FBSurface> FrameBufferSDL2::createSurface(uInt32 w, uInt32 h,
                                           const uInt32* data) const
 {
+	printf("cs: %ux%u\n", w, h);
   return make_ptr<FBSurfaceSDL2>(const_cast<FrameBufferSDL2&>(*this), w, h, data);
 }
 

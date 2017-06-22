@@ -119,7 +119,33 @@ void EventHandlerRoku::pollEvent()
 //	UIUp, UIDown, UILeft, UIRight, UIHome, UIEnd, UIPgUp, UIPgDown,
 //	UISelect, UINavPrev, UINavNext, UIOK, UICancel, UIPrevDir,
 
+	bool paddle[2] = {0, 0};
 
+	// TODO - make paddle events based on time since last firing
+	if (myOSystem.hasConsole()) {
+		if (btns[primaryRemote] & (ROKU_INPUT_BUTTON_UP | ROKU_INPUT_BUTTON_DOWN)) {
+			paddle[primaryRemote] = BSPF::startsWithIgnoreCase(myOSystem.console().properties().get(Controller_Left), "PADDLES");
+			if (paddle[primaryRemote]) {
+				if (btns[primaryRemote] & ROKU_INPUT_BUTTON_UP) {
+					handleMouseMotionEvent(0, 0, -3, 0, 0);
+				}
+				if (btns[primaryRemote] & ROKU_INPUT_BUTTON_DOWN) {
+					handleMouseMotionEvent(0, 0, 3, 0, 0);
+				}
+			}
+		}
+		if (btns[secondaryRemote] & (ROKU_INPUT_BUTTON_UP | ROKU_INPUT_BUTTON_DOWN)) {
+			paddle[secondaryRemote] = BSPF::startsWithIgnoreCase(myOSystem.console().properties().get(Controller_Right), "PADDLES");
+			if (paddle[secondaryRemote]) {
+				if (btns[secondaryRemote] & ROKU_INPUT_BUTTON_UP) {
+					handleMouseMotionEvent(0, 0, 0, -3, 0);
+				}
+				if (btns[secondaryRemote] & ROKU_INPUT_BUTTON_DOWN) {
+					handleMouseMotionEvent(0, 0, 0, 3, 0);
+				}
+			}
+		}
+	}
 	if (anyChanges) {
 		bool pressed = false;
 		if (btns[primaryRemote] != prevButtons[primaryRemote]) {
@@ -132,17 +158,19 @@ void EventHandlerRoku::pollEvent()
 //				handleKeyEvent(StellaKey(KBDK_S), KBDM_NONE, pressed);
 //				handleKeyEvent(StellaKey(KBDK_K), KBDM_NONE, pressed);
 //				handleJoyAxisEvent(1, 1, 32000);
-				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_UP, Event::JoystickZeroLeft);
-//				handleKeyEvent(StellaKey(KBDK_A), KBDM_NONE, pressed);
-//				handleKeyEvent(StellaKey(KBDK_J), KBDM_NONE, pressed);
-//				handleJoyAxisEvent(1, 0, -32000);
-				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_DOWN, Event::JoystickZeroRight);
-//				handleKeyEvent(StellaKey(KBDK_D), KBDM_NONE, pressed);
-//				handleKeyEvent(StellaKey(KBDK_L), KBDM_NONE, pressed);
-//				handleJoyAxisEvent(1, 0, 32000);
+				if (!paddle[primaryRemote]) {
+					CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_UP, Event::JoystickZeroLeft);
+//					handleKeyEvent(StellaKey(KBDK_A), KBDM_NONE, pressed);
+//					handleKeyEvent(StellaKey(KBDK_J), KBDM_NONE, pressed);
+//					handleJoyAxisEvent(1, 0, -32000);
+					CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_DOWN, Event::JoystickZeroRight);
+//					handleKeyEvent(StellaKey(KBDK_D), KBDM_NONE, pressed);
+//					handleKeyEvent(StellaKey(KBDK_L), KBDM_NONE, pressed);
+//					handleJoyAxisEvent(1, 0, 32000);
+				}
 				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_B, Event::JoystickZeroFire);
 //				handleJoyEvent(1, 0, pressed);
-				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_A, StellaKey(KBDK_PAUSE), KBDM_NONE);
+                CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_A, Event::JoystickZeroFire);
 //				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_A, Event::PauseMode);
 
 				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_BACK, StellaKey(KBDK_ESCAPE), KBDM_NONE);
@@ -150,8 +178,8 @@ void EventHandlerRoku::pollEvent()
 				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_INSTANT_REPLAY, Event::ConsoleReset); // F2
 //				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_INSTANT_REPLAY, StellaKey(KBDK_F2), KBDM_NONE); // RESET
 				// CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_SELECT, Event::NONE); // SELECT is OK, which is next to arrows. It is too easy to hit by accident
-				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_PLAY, Event::ConsoleReset); // F2
-				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_INFO, Event::ConsoleLeftDiffToggle);
+                CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_PLAY, StellaKey(KBDK_PAUSE), KBDM_NONE);
+                CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_INFO, Event::ConsoleLeftDiffToggle);
 				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_RWD, Event::ConsoleSelect); // F1
 				CHECKEVENT(primaryRemote, ROKU_INPUT_BUTTON_FWD, Event::ConsoleSelect); // F1
 //				CHECKKEYEVENT(primaryRemote, ROKU_INPUT_BUTTON_SELECT, StellaKey(KBDK_RETURN), KBDM_NONE);
@@ -182,15 +210,17 @@ void EventHandlerRoku::pollEvent()
 			if (playMode) {
 				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_RIGHT, Event::JoystickOneUp);
 				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_LEFT, Event::JoystickOneDown);
-				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_UP, Event::JoystickOneLeft);
-				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_DOWN, Event::JoystickOneRight);
-				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_B, Event::JoystickOneFire);
-				CHECKKEYEVENT(secondaryRemote, ROKU_INPUT_BUTTON_A, StellaKey(KBDK_PAUSE), KBDM_NONE);
+				if (!paddle[secondaryRemote]) {
+					CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_UP, Event::JoystickOneLeft);
+					CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_DOWN, Event::JoystickOneRight);
+				}
+                CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_B, Event::JoystickOneFire);
+                CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_A, Event::JoystickOneFire);
 				CHECKKEYEVENT(secondaryRemote, ROKU_INPUT_BUTTON_BACK, StellaKey(KBDK_ESCAPE), KBDM_NONE);
-				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_INSTANT_REPLAY, Event::ConsoleReset);
+                CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_INSTANT_REPLAY, Event::ConsoleReset); //F2
 				// CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_SELECT, Event::NONE); // SELECT is OK, which is next to arrows. It is too easy to hit by accident
-				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_PLAY, Event::ConsoleReset); // F2
-				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_INFO, Event::ConsoleRightDiffToggle);
+                CHECKKEYEVENT(secondaryRemote, ROKU_INPUT_BUTTON_PLAY, StellaKey(KBDK_PAUSE), KBDM_NONE);
+                CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_INFO, Event::ConsoleRightDiffToggle);
 				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_RWD, Event::ConsoleSelect); // F1
 				CHECKEVENT(secondaryRemote, ROKU_INPUT_BUTTON_FWD, Event::ConsoleSelect); // F1
 			} else {

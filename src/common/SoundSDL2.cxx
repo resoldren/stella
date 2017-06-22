@@ -31,6 +31,11 @@
 #include "Console.hxx"
 #include "SoundSDL2.hxx"
 
+#include <chrono>
+
+static std::chrono::high_resolution_clock::time_point begin;
+double myFrameDuration;
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 SoundSDL2::SoundSDL2(OSystem& osystem)
   : Sound(osystem),
@@ -45,6 +50,7 @@ SoundSDL2::SoundSDL2(OSystem& osystem)
     myVolume(100)
 {
   myOSystem.logMessage("SoundSDL2::SoundSDL2 started ...", 2);
+  begin = std::chrono::high_resolution_clock::now();
 
   // The sound system is opened only once per program run, to eliminate
   // issues with opening and closing it multiple times
@@ -79,6 +85,9 @@ SoundSDL2::SoundSDL2(OSystem& osystem)
     SDL_CloseAudio();
     return;
   }
+
+  myFrameDuration = 1.0 / myHardwareSpec.freq;
+  printf("frame duration = %g\n", myFrameDuration);
 
   // Pre-compute fragment-related variables as much as possible
   myFragmentSizeLogBase2 = log(myHardwareSpec.samples) / log(2.0);
@@ -251,11 +260,25 @@ void SoundSDL2::setFrameRate(float framerate)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void SoundSDL2::set(uInt16 addr, uInt8 value, Int32 cycle)
 {
+    static auto setLast = std::chrono::high_resolution_clock::now();
+    auto setNow = std::chrono::high_resolution_clock::now();
+    auto setDistance = setNow - setLast;
+    static Int32 setCycles = 0;
+    static double setAmount = 0.0;
   SDL_LockAudio();
 
   // First, calculate how many seconds would have past since the last
   // register write on a real 2600
+  setCycles += cycle - myLastRegisterSetCycle;
   double delta = double(cycle - myLastRegisterSetCycle) / 1193191.66666667;
+  setAmount += delta;
+  if (setDistance >= std::chrono::milliseconds(1000)) {
+    printf("%07ld: %gms(%d cycles) in %ldms\n", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()-begin).count(), setAmount,
+           setCycles, std::chrono::duration_cast<std::chrono::milliseconds>(setDistance).count());
+    setLast = setNow;
+    setAmount = 0.0;
+    setCycles = 0;
+  }
 
   // Now, adjust the time based on the frame rate the user has selected. For
   // the sound to "scale" correctly, we have to know the games real frame
@@ -363,7 +386,14 @@ void SoundSDL2::callback(void* udata, uInt8* stream, int len)
     // The callback is requesting 8-bit (unsigned) data, but the TIA sound
     // emulator deals in 16-bit (signed) data
     // So, we need to convert the pointer and half the length
+    double soundAvailable = sound->myRegWriteQueue.duration();
+    int framesAvailable = soundAvailable / myFrameDuration - 0;
     sound->processFragment(reinterpret_cast<Int16*>(stream), uInt32(len) >> 1);
+    double soundAvailable2 = sound->myRegWriteQueue.duration();
+    auto now = std::chrono::high_resolution_clock::now();
+//    printf("%07ld: a: len=%d sAvail=%g, sAvail2=%g fAvail=%d\n",
+//           std::chrono::duration_cast<std::chrono::milliseconds>(now-begin).count(),
+//           len, soundAvailable, soundAvailable2, framesAvailable);
   }
   else
     SDL_memset(stream, 0, len);  // Write 'silence'
@@ -478,6 +508,7 @@ double SoundSDL2::RegWriteQueue::duration() const
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void SoundSDL2::RegWriteQueue::enqueue(const RegWrite& info)
 {
+//  printf("%07ld: enqueue %g\n", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()-begin).count(), info.delta);
   // If an attempt is made to enqueue more than the queue can hold then
   // we'll enlarge the queue's capacity.
   if(mySize == myCapacity)
