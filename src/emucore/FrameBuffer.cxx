@@ -215,7 +215,7 @@ FBInitStatus FrameBuffer::createDisplay(const string& title,
     }
   }
   else {
-	  printf("Couldn't create 2 %u x %u < %u x %u\n", width, height, mode.screen.w, mode.screen.h);
+      printf("Couldn't create 2 %u x %u > %u x %u\n", width, height, mode.screen.w, mode.screen.h);
     return kFailTooLarge;
   }
 
