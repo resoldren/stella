@@ -32,7 +32,7 @@ FrameBufferRoku::FrameBufferRoku(OSystem& osystem)
 	//    myRenderer(nullptr),
     myGraphics(R2D2::RoGraphics::Create()),
 
-    myScreen(myGraphics->CreateScreen(378, 213, true)), // SMALLEST 16x9
+    //myScreen(myGraphics->CreateScreen(378, 213, true)), // SMALLEST 16x9
 
     //myScreen(myGraphics->CreateScreen(426, 240, true)), // OKAY
 	//myScreen(myGraphics->CreateScreen(394, 222, true)), // OKAY
@@ -41,7 +41,7 @@ FrameBufferRoku::FrameBufferRoku(OSystem& osystem)
 	//myScreen(myGraphics->CreateScreen(213, 120, true)), // NO GO
 	
     //myScreen(myGraphics->CreateScreen(640, 480, true)), // Minimum needed for launcher window, but stretches screen
-    //myScreen(myGraphics->CreateScreen(852, 480, true)), // Works with launcher window, but more is off screen than 640x480
+    myScreen(myGraphics->CreateScreen(852, 480, true)), // Works with launcher window, but more is off screen than 640x480
 
 	//myScreen(myGraphics->CreateScreen(160, 192, true)), // NO GO
 	//myScreen(myGraphics->CreateScreen(1280, 720, true)), // OKAY

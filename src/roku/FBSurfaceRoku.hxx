@@ -19,6 +19,9 @@
 typedef bool SDL_TextureAccess;
 
 #include <roku/robitmap.h>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 
 /**
   An FBSurface suitable for the Roku Render2D API, making use of hardware
@@ -72,11 +75,22 @@ class FBSurfaceRoku : public FBSurface
   private:
     FrameBufferRoku& myFB;
 
-	R2D2::RoBitmap* myBitmap;
+    std::mutex myBitmapMutex;
+    std::condition_variable myBitmapCondVar;
+    int myCurrentDrawBitmap;
+    int myNextDrawBitmap;
+    int myCurrentFillingBitmap;
+    R2D2::RoBitmap* myBitmaps[2];
+    uInt8* myBitmapPtrs[2];
+    uInt32* myMemory;
 	uInt32 myBitmapWidth;
 	uInt32 myBitmapHeight;
 //    SDL_Surface* mySurface;
 //    SDL_Texture* myTexture;
+
+    bool stopping;
+    std::thread myDrawThread;
+    void run();
 
     bool mySurfaceIsDirty;
     bool myIsVisible;
