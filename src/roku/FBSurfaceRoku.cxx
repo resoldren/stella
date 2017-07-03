@@ -13,6 +13,9 @@
 #include "FBSurfaceRoku.hxx"
 
 #include <roku/robitmap.h>
+#if defined(TIME_RENDERMEMCOPY) || defined(TIME_FULLRENDER)
+#include <chrono>
+#endif
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 FBSurfaceRoku::FBSurfaceRoku(FrameBufferRoku& buffer,
@@ -138,21 +141,56 @@ bool FBSurfaceRoku::render()
   if(mySurfaceIsDirty && myIsVisible)
   {
 #if 0
-	  	printf("FBSurfaceRoku::render %p ()\n", this);
-		cerr << "src: x=" << mySrcGUIR.x() << ", y=" << mySrcGUIR.y() << ", w=" << mySrcGUIR.width() << ", h=" << mySrcGUIR.height() << endl;
-		cerr << "dst: x=" << myDstGUIR.x() << ", y=" << myDstGUIR.y() << ", w=" << myDstGUIR.width() << ", h=" << myDstGUIR.height() << endl;
+    printf("FBSurfaceRoku::render %p ()\n", this);
+    cerr << "src: x=" << mySrcGUIR.x() << ", y=" << mySrcGUIR.y() << ", w=" << mySrcGUIR.width() << ", h=" << mySrcGUIR.height() << endl;
+    cerr << "dst: x=" << myDstGUIR.x() << ", y=" << myDstGUIR.y() << ", w=" << myDstGUIR.width() << ", h=" << myDstGUIR.height() << endl;
+#endif
+#ifdef TIME_RENDERMEMCOPY
+    static char junk[2000 * 1000];
+    auto renderMemcpy1 = std::chrono::high_resolution_clock::now();
+    int startY = mySrcGUIR.y();
+    int startX = mySrcGUIR.x() * 3;
+    int width = mySrcGUIR.width() * 3;
+    for (unsigned y = 0; y < mySrcGUIR.height(); ++y) {
+        memcpy(&junk[2000 * y], &myPixels[(startY + y) * width + startX], width);
+    }
+    auto renderMemcpy2 = std::chrono::high_resolution_clock::now();
+    auto xx = std::chrono::duration_cast<std::chrono::milliseconds>(renderMemcpy2 - renderMemcpy1).count();
+    if (xx > 0) {
+        printf("memcopy: %lldms\n", xx);
+    }
+#endif
+#ifdef TIME_FULLRENDER
+    auto renderTime1 = std::chrono::high_resolution_clock::now();
 #endif
     myBitmap->Unlock();
-	// SDL_UpdateTexture(myTexture, &mySrcR, mySurface->pixels, mySurface->pitch);
+#ifdef TIME_FULLRENDER
+    auto renderTime2 = std::chrono::high_resolution_clock::now();
+#endif
+    // SDL_UpdateTexture(myTexture, &mySrcR, mySurface->pixels, mySurface->pitch);
 //    SDL_RenderCopy(myFB.myRenderer, myTexture, &mySrcR, &myDstR);
-#if 1
+#ifndef SKIP_DRAWOBJECT
     myFB.myScreen->DrawObject(
           R2D2::RoRect(myDstGUIR.x(), myDstGUIR.y(), myDstGUIR.width(), myDstGUIR.height()),
 		  *myBitmap,
           R2D2::RoRect(mySrcGUIR.x(), mySrcGUIR.y(), mySrcGUIR.width(), mySrcGUIR.height()));
 #endif
+#ifdef TIME_FULLRENDER
+    auto renderTime3 = std::chrono::high_resolution_clock::now();
+#endif
     auto newp = reinterpret_cast<uInt32*>(myBitmap->Lock(true));
-	if (newp != myPixels) {
+#ifdef TIME_FULLRENDER
+    auto renderTime4 = std::chrono::high_resolution_clock::now();
+    auto total = std::chrono::duration_cast<std::chrono::milliseconds>(renderTime4 - renderTime1).count();
+    if (total > 3) {
+        printf("Render: total: %lldms (%lldms/%lldms/%lldms)\n",
+               total,
+               std::chrono::duration_cast<std::chrono::milliseconds>(renderTime2 - renderTime1).count(),
+               std::chrono::duration_cast<std::chrono::milliseconds>(renderTime3 - renderTime2).count(),
+               std::chrono::duration_cast<std::chrono::milliseconds>(renderTime4 - renderTime3).count());
+    }
+#endif
+    if (newp != myPixels) {
 		//		printf("PIXELS CHANGED\n");
 		myPixels = newp;
 	}
