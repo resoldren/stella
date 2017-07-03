@@ -21,6 +21,7 @@
 FBSurfaceRoku::FBSurfaceRoku(FrameBufferRoku& buffer,
                              uInt32 width, uInt32 height, const uInt32* data)
   : myFB(buffer),
+    myBitmap(nullptr),
 	//    mySurface(nullptr),
 	//    myTexture(nullptr),
     mySurfaceIsDirty(true),
@@ -296,7 +297,12 @@ void FBSurfaceRoku::resize(uInt32 width, uInt32 height)
 void FBSurfaceRoku::createSurface(uInt32 width, uInt32 height,
                                   const uInt32* data)
 {
-	//	printf("FBSurfaceRoku::crateSurface %p (%u, %u, %p)\n", this, width, height, data);
+    if (myBitmap) {
+        myBitmap->Unlock();
+        delete myBitmap;
+        myBitmap = nullptr;
+    }
+    //	printf("FBSurfaceRoku::crateSurface %p (%u, %u, %p)\n", this, width, height, data);
 	myBitmap = myFB.myGraphics->CreateBitmap(width, height, R2D2::RGBA8888);
 	myBitmapWidth = static_cast<uInt32>(myBitmap->GetBounds().width);
 	myBitmapHeight = static_cast<uInt32>(myBitmap->GetBounds().height);
