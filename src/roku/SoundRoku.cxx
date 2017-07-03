@@ -531,8 +531,8 @@ void SoundRoku::processAudio()
       // emulator deals in 16-bit (signed) data
       // So, we need to convert the pointer and half the length
       processFragment(stream, write);
-      double soundAvailable2 = myRegWriteQueue.duration();
-      auto now = std::chrono::high_resolution_clock::now();
+      // double soundAvailable2 = myRegWriteQueue.duration();
+      // auto now = std::chrono::high_resolution_clock::now();
       //fprintf(fdbg, "%07lld: a: write=%u avail=%u sAvail=%g, sAvail2=%g fAvail=%d\n",
       //       std::chrono::duration_cast<std::chrono::milliseconds>(now-begin).count(),
       //       write, status.avail, soundAvailable, soundAvailable2, framesAvailable);
