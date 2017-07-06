@@ -156,9 +156,9 @@ bool FBSurfaceRoku::render()
         memcpy(&junk[2000 * y], &myPixels[(startY + y) * width + startX], width);
     }
     auto renderMemcpy2 = std::chrono::high_resolution_clock::now();
-    auto xx = std::chrono::duration_cast<std::chrono::milliseconds>(renderMemcpy2 - renderMemcpy1).count();
+    auto xx = std::chrono::duration_cast<std::chrono::microseconds>(renderMemcpy2 - renderMemcpy1).count();
     if (xx > 0) {
-        printf("memcopy: %lldms\n", xx);
+        printf("memcopy: %lldus\n", xx);
     }
 #endif
 #ifdef TIME_FULLRENDER
