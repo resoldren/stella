@@ -471,7 +471,9 @@ FBInitStatus Console::initializeVideo(bool full)
   // (ie, framerate is now determined based on number of scanlines).
   int framerate = myOSystem.settings().getInt("framerate");
   if(framerate > 0) myFramerate = float(framerate);
+  printf("initialize Video\n");
   myOSystem.setFramerate(myFramerate);
+  printf("Console::initializeVideo set framerate to %d\n", framerate);
 
   // Make sure auto-frame calculation is only enabled when necessary
   myTIA->enableAutoFrame(framerate <= 0);
@@ -487,6 +489,7 @@ void Console::initializeAudio()
   // the commandline, but it can't be saved.
   int framerate = myOSystem.settings().getInt("framerate");
   if(framerate > 0) myFramerate = float(framerate);
+  printf("Console::initializeAudio set framerate to %d\n", framerate);
   const string& sound = myProperties.get(Cartridge_Sound);
 
   myOSystem.sound().close();
@@ -636,6 +639,7 @@ void Console::setTIAProperties()
 
     myTIA->setLayout(FrameLayout::pal);
   }
+  printf("Console::setTIAProperties set framerate to %g\n", myFramerate);
 
   myTIA->setYStart(ystart);
   myTIA->setHeight(height);
@@ -896,6 +900,7 @@ void Console::generateColorLossPalette()
 void Console::setFramerate(float framerate)
 {
   myFramerate = framerate;
+  printf("Console::setFramerate set framerate to %g\n", myFramerate);
   myOSystem.setFramerate(framerate);
   myOSystem.sound().setFrameRate(framerate);
 }

@@ -1046,8 +1046,10 @@ void TIA::onFrameComplete()
     memset(myCurrentFrameBuffer.get() + 160 * myFrameManager.getY(), 0, missingScanlines * 160);
 
   // Recalculate framerate, attempting to auto-correct for scanline 'jumps'
-  if(myAutoFrameEnabled)
+  if(myAutoFrameEnabled) {
+    printf("onFrameComplete\n");
     myConsole.setFramerate(myFrameManager.frameRate());
+  }
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

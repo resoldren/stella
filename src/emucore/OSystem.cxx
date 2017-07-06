@@ -78,6 +78,7 @@ OSystem::OSystem()
   #endif
 
   mySettings = MediaFactory::createSettings(*this);
+  mySettings->setValue("framerate", 30);
   myRandom = make_ptr<Random>(*this);
 }
 
@@ -229,6 +230,7 @@ void OSystem::setFramerate(float framerate)
   if(framerate > 0.0)
   {
     myDisplayFrameRate = framerate;
+	printf("OSystem::setFramerate set framerate to %g\n", framerate);
     myTimePerFrame = uInt32(1000000.0 / myDisplayFrameRate);
   }
 }
