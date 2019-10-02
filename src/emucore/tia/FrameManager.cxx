@@ -100,6 +100,8 @@ void FrameManager::nextLine()
   myCurrentFrameTotalLines++;
   myLineInState++;
 
+//  printf("myState: %d myY %d myCurrentFrameTotalLines %d myLineInState %d myFrameLines %d myTotalFrames %d myVsyncLines %d vsyncLimit %d myAutodetectLayout %s\n",
+//    myState, myY, myCurrentFrameTotalLines, myLineInState, myFrameLines, myTotalFrames, myVsyncLines, vsyncLimit(myAutodetectLayout), myAutodetectLayout ? "true" : "false");
   switch (myState)
   {
     case State::waitForVsyncStart:

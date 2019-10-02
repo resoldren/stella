@@ -28,7 +28,7 @@ FBSurfaceRoku::FBSurfaceRoku(FrameBufferRoku& buffer,
     myMemory(nullptr),
 	//    mySurface(nullptr),
 	//    myTexture(nullptr),
-    stopping(false),
+//    stopping(false),
     mySurfaceIsDirty(true),
     myIsVisible(true),
     myTexAccess(SDL_TEXTUREACCESS_STREAMING),
@@ -39,29 +39,31 @@ FBSurfaceRoku::FBSurfaceRoku(FrameBufferRoku& buffer,
 {
   printf("FBSurfaceRoku::FBSurfaceRoku %p (buf, %u, %u, %p)\n", this, width, height, data);
   createSurface(width, height, data);
-  printf("RUN: Starting thread for %p\n", this);
-  myDrawThread = std::thread([this](){ run(); });
+//  printf("RUN: Starting thread for %p\n", this);
+//  myDrawThread = std::thread([this](){ run(); });
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 FBSurfaceRoku::~FBSurfaceRoku()
 {
-    stopping = true;
+//    stopping = true;
     myBitmapCondVar.notify_one();
-    if (myDrawThread.joinable()) {
-        myDrawThread.join();
-    }
+//    if (myDrawThread.joinable()) {
+//        myDrawThread.join();
+//    }
 	//	printf("FBSurfaceRoku::~FBSurfaceRoku %p ()\n", this);
-    if (myBitmaps[0]) {
-        myBitmaps[0]->Unlock();
-        delete myBitmaps[0];
-        myBitmaps[0] = nullptr;
-        myBitmaps[1]->Unlock();
-        delete myBitmaps[1];
-        myBitmaps[1] = nullptr;
-        delete[] myMemory;
-        myMemory = nullptr;
-    }
+    myFB.callGraphicsMethod([this](R2D2::RoGraphics* graphics) {
+        if (myBitmaps[0]) {
+            myBitmaps[0]->Unlock();
+            delete myBitmaps[0];
+            myBitmaps[0] = nullptr;
+            myBitmaps[1]->Unlock();
+            delete myBitmaps[1];
+            myBitmaps[1] = nullptr;
+            delete[] myMemory;
+            myMemory = nullptr;
+        }
+    }, true);
 #if 0
   if(mySurface)
     SDL_FreeSurface(mySurface);
@@ -153,36 +155,36 @@ void FBSurfaceRoku::translateCoords(Int32& x, Int32& y) const
 	y -= myDstGUIR.y();
 }
 
-void FBSurfaceRoku::run()
-{
-    printf("RUN: starting for %p\n", this);
-    while (!stopping) {
-        {
-            std::unique_lock<std::mutex> lock(myBitmapMutex);
-            printf("RUN: about to wait in %p\n", this);
-            myBitmapCondVar.wait(lock, [this](){return stopping || myNextDrawBitmap >= 0;});
-            if (!stopping) {
-                myCurrentDrawBitmap = myNextDrawBitmap;
-                myNextDrawBitmap = -1;
-            }
-            printf("RUN: done waiting in %p\n", this);
-        }
-        if (myCurrentDrawBitmap >= 0) {
-            myBitmaps[myCurrentDrawBitmap]->Unlock();
-#ifndef SKIP_DRAWOBJECT
-            myFB.myScreen->DrawObject(
-                  R2D2::RoRect(myDstGUIR.x(), myDstGUIR.y(), myDstGUIR.width(), myDstGUIR.height()),
-                  *myBitmaps[myCurrentDrawBitmap],
-                  R2D2::RoRect(mySrcGUIR.x(), mySrcGUIR.y(), mySrcGUIR.width(), mySrcGUIR.height()));
-#endif
-            myBitmapPtrs[myCurrentDrawBitmap] = reinterpret_cast<uInt8*>(myBitmaps[myCurrentDrawBitmap]->Lock(true));
-            {
-                std::lock_guard<std::mutex> lock(myBitmapMutex);
-                myCurrentDrawBitmap = -1;
-            }
-        }
-    }
-}
+//void FBSurfaceRoku::run()
+//{
+//    printf("RUN: starting for %p\n", this);
+//    while (!stopping) {
+//        {
+//            std::unique_lock<std::mutex> lock(myBitmapMutex);
+//            printf("RUN: about to wait in %p\n", this);
+//            myBitmapCondVar.wait(lock, [this](){return stopping || myNextDrawBitmap >= 0;});
+//            if (!stopping) {
+//                myCurrentDrawBitmap = myNextDrawBitmap;
+//                myNextDrawBitmap = -1;
+//            }
+//            printf("RUN: done waiting in %p\n", this);
+//        }
+//        if (myCurrentDrawBitmap >= 0) {
+//            myFB.callScreenMethod([this](R2D2::RoScreen* screen) {
+//                myBitmaps[myCurrentDrawBitmap]->Unlock();
+//#ifndef SKIP_DRAWOBJECT
+//                screen->DrawObject(
+//                      R2D2::RoRect(myDstGUIR.x(), myDstGUIR.y(), myDstGUIR.width(), myDstGUIR.height()),
+//                      *myBitmaps[myCurrentDrawBitmap],
+//                      R2D2::RoRect(mySrcGUIR.x(), mySrcGUIR.y(), mySrcGUIR.width(), mySrcGUIR.height()));
+//#endif
+//                myBitmapPtrs[myCurrentDrawBitmap] = reinterpret_cast<uInt8*>(myBitmaps[myCurrentDrawBitmap]->Lock(true));
+//                std::lock_guard<std::mutex> lock(myBitmapMutex);
+//                myCurrentDrawBitmap = -1;
+//            }, false);
+//        }
+//    }
+//}
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 bool FBSurfaceRoku::render()
@@ -224,23 +226,67 @@ bool FBSurfaceRoku::render()
     }
     myBitmapCondVar.notify_one();
 
-#if 0
+#if 1
 #ifdef TIME_FULLRENDER
     auto renderTime2 = std::chrono::high_resolution_clock::now();
 #endif
     // SDL_UpdateTexture(myTexture, &mySrcR, mySurface->pixels, mySurface->pitch);
 //    SDL_RenderCopy(myFB.myRenderer, myTexture, &mySrcR, &myDstR);
 #ifndef SKIP_DRAWOBJECT
-    myFB.myScreen->DrawObject(
-          R2D2::RoRect(myDstGUIR.x(), myDstGUIR.y(), myDstGUIR.width(), myDstGUIR.height()),
-          *myBitmaps[0],
-          R2D2::RoRect(mySrcGUIR.x(), mySrcGUIR.y(), mySrcGUIR.width(), mySrcGUIR.height()));
+//    myFB.callScreenMethod([this](R2D2::RoScreen* screen) {
+//        {
+//            std::unique_lock<std::mutex> lock(myBitmapMutex);
+//            myCurrentDrawBitmap = myNextDrawBitmap;
+//            myNextDrawBitmap = -1;
+//        }
+//        screen->DrawObject(
+//            R2D2::RoRect(myDstGUIR.x(), myDstGUIR.y(), myDstGUIR.width(), myDstGUIR.height()),
+//            *myBitmaps[0],
+//            R2D2::RoRect(mySrcGUIR.x(), mySrcGUIR.y(), mySrcGUIR.width(), mySrcGUIR.height()));
+//    }, false);
+        myFB.callScreenMethod([this](R2D2::RoScreen* screen) {
+            {
+                std::lock_guard<std::mutex> lock(myBitmapMutex);
+                myCurrentDrawBitmap = myNextDrawBitmap;
+                myNextDrawBitmap = -1;
+            }
+            if (myCurrentDrawBitmap >= 0) {
+#ifdef TIME_FULLRENDER
+    auto renderTime1 = std::chrono::high_resolution_clock::now();
+#endif
+                myBitmaps[myCurrentDrawBitmap]->Unlock();
+#ifdef TIME_FULLRENDER
+    auto renderTime2 = std::chrono::high_resolution_clock::now();
+#endif
+#ifndef SKIP_DRAWOBJECT
+                screen->DrawObject(
+                      R2D2::RoRect(myDstGUIR.x(), myDstGUIR.y(), myDstGUIR.width(), myDstGUIR.height()),
+                      *myBitmaps[myCurrentDrawBitmap],
+                      R2D2::RoRect(mySrcGUIR.x(), mySrcGUIR.y(), mySrcGUIR.width(), mySrcGUIR.height()));
+#endif
+#ifdef TIME_FULLRENDER
+    auto renderTime3 = std::chrono::high_resolution_clock::now();
+#endif
+                myBitmapPtrs[myCurrentDrawBitmap] = reinterpret_cast<uInt8*>(myBitmaps[myCurrentDrawBitmap]->Lock(true));
+#ifdef TIME_FULLRENDER
+    auto renderTime4 = std::chrono::high_resolution_clock::now();
+    auto total = std::chrono::duration_cast<std::chrono::milliseconds>(renderTime4 - renderTime1).count();
+    printf("Render: total: %lldms (%lldms/%lldms/%lldms)\n",
+           total,
+           std::chrono::duration_cast<std::chrono::milliseconds>(renderTime2 - renderTime1).count(),
+           std::chrono::duration_cast<std::chrono::milliseconds>(renderTime3 - renderTime2).count(),
+           std::chrono::duration_cast<std::chrono::milliseconds>(renderTime4 - renderTime3).count());
+#endif
+                std::lock_guard<std::mutex> lock(myBitmapMutex);
+                myCurrentDrawBitmap = -1;
+            }
+        }, false);
 #endif
 #ifdef TIME_FULLRENDER
     auto renderTime3 = std::chrono::high_resolution_clock::now();
     auto total = std::chrono::duration_cast<std::chrono::milliseconds>(renderTime3 - renderTime1).count();
-    if (total > 2) {
-        printf("Render: total: %lldms (%lldms/%lldms)\n",
+    if (total > 0) {
+        printf("outer Render: total: %lldms (%lldms/%lldms)\n",
                total,
                std::chrono::duration_cast<std::chrono::milliseconds>(renderTime2 - renderTime1).count(),
                std::chrono::duration_cast<std::chrono::milliseconds>(renderTime3 - renderTime2).count());
@@ -350,24 +396,26 @@ void FBSurfaceRoku::resize(uInt32 width, uInt32 height)
 void FBSurfaceRoku::createSurface(uInt32 width, uInt32 height,
                                   const uInt32* data)
 {
-    if (myBitmaps[0]) {
-        myBitmaps[0]->Unlock();
-        delete myBitmaps[0];
-        myBitmaps[0] = nullptr;
-        myBitmaps[1]->Unlock();
-        delete myBitmaps[1];
-        myBitmaps[1] = nullptr;
-        delete[] myMemory;
-        myMemory = nullptr;
-    }
     //	printf("FBSurfaceRoku::crateSurface %p (%u, %u, %p)\n", this, width, height, data);
-    myBitmaps[0] = myFB.myGraphics->CreateBitmap(width, height, R2D2::RGBA8888);
-    myBitmaps[1] = myFB.myGraphics->CreateBitmap(width, height, R2D2::RGBA8888);
-    myBitmapWidth = static_cast<uInt32>(myBitmaps[0]->GetBounds().width);
-    myBitmapHeight = static_cast<uInt32>(myBitmaps[0]->GetBounds().height);
+    myFB.callGraphicsMethod([this, width, height](R2D2::RoGraphics* graphics) {
+        if (myBitmaps[0]) {
+            myBitmaps[0]->Unlock();
+            delete myBitmaps[0];
+            myBitmaps[0] = nullptr;
+            myBitmaps[1]->Unlock();
+            delete myBitmaps[1];
+            myBitmaps[1] = nullptr;
+            delete[] myMemory;
+            myMemory = nullptr;
+        }
+        myBitmaps[0] = graphics->CreateBitmap(width, height, R2D2::RGBA8888);
+        myBitmaps[1] = graphics->CreateBitmap(width, height, R2D2::RGBA8888);
+        myBitmapWidth = static_cast<uInt32>(myBitmaps[0]->GetBounds().width);
+        myBitmapHeight = static_cast<uInt32>(myBitmaps[0]->GetBounds().height);
+        myBitmapPtrs[0] = reinterpret_cast<uInt8*>(myBitmaps[0]->Lock(true));
+        myBitmapPtrs[1] = reinterpret_cast<uInt8*>(myBitmaps[1]->Lock(true));
+    }, true);
     myMemory = new uInt32[myBitmapWidth * myBitmapHeight];
-    myBitmapPtrs[0] = reinterpret_cast<uInt8*>(myBitmaps[0]->Lock(true));
-    myBitmapPtrs[1] = reinterpret_cast<uInt8*>(myBitmaps[1]->Lock(true));
 #if 0
   // Create a surface in the same format as the parent GL class
   const SDL_PixelFormat* pf = myFB.myPixelFormat;

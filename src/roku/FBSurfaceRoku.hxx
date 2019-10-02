@@ -88,9 +88,9 @@ class FBSurfaceRoku : public FBSurface
 //    SDL_Surface* mySurface;
 //    SDL_Texture* myTexture;
 
-    bool stopping;
-    std::thread myDrawThread;
-    void run();
+//    bool stopping;
+//    std::thread myDrawThread;
+//    void run();
 
     bool mySurfaceIsDirty;
     bool myIsVisible;

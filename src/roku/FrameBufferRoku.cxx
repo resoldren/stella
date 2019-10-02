@@ -10,9 +10,10 @@
 //
 //============================================================================
 
+#include <fstream>
+#include <functional>
 #include <sstream>
 #include <time.h>
-#include <fstream>
 
 #include "bspf.hxx"
 
@@ -25,29 +26,97 @@
 #include "FBSurfaceRoku.hxx"
 #include "FrameBufferRoku.hxx"
 
+void FrameBufferRoku::run(int width, int height) {
+    std::unique_ptr<R2D2::RoGraphics> myGraphics(R2D2::RoGraphics::Create());
+    std::unique_ptr<R2D2::RoScreen> myScreen(myGraphics->CreateScreen(width, height, true));
+    while (!myStopping) {
+        std::unique_lock<std::mutex> lock(myQueueMutex);
+        myQueueCondVar.wait(lock, [this](){ return myStopping || !myQueue.empty(); });
+        if (myStopping) {
+            break;
+        }
+        QueueItem& item = myQueue.front();
+        lock.unlock();
+        item(myGraphics.get(), myScreen.get());
+        lock.lock();
+        myQueue.pop_front();
+    }
+}
+
+FrameBufferRoku::QueueItem::QueueItem(RoScreenCallback callback, bool waitFor) :
+    done(false),
+    cbScreen(callback),
+    cbGraphics(),
+    waitFor(waitFor)
+{
+}
+
+FrameBufferRoku::QueueItem::QueueItem(RoGraphicsCallback callback, bool waitFor) :
+    done(false),
+    cbScreen(),
+    cbGraphics(callback),
+    waitFor(waitFor)
+{
+}
+
+void FrameBufferRoku::QueueItem::operator()(R2D2::RoGraphics* g, R2D2::RoScreen* s)
+{
+    if (cbGraphics) {
+        cbGraphics(g);
+    } else if (cbScreen) {
+        cbScreen(s);
+    }
+    std::lock_guard<std::mutex> lock(mutex);
+    done = true;
+    cv.notify_one();
+}
+
+void FrameBufferRoku::QueueItem::wait()
+{
+    if (waitFor) {
+        std::unique_lock<std::mutex> lock(mutex);
+        cv.wait(lock, [this](){return done;});
+    }
+}
+
+void FrameBufferRoku::callScreenMethod(RoScreenCallback fn, bool wait) {
+    std::unique_lock<std::mutex> lock(myQueueMutex);
+    myQueue.emplace_back(fn, wait);
+    myQueueCondVar.notify_all();
+    QueueItem& item = myQueue.back();
+    lock.unlock();
+    item.wait();
+}
+
+void FrameBufferRoku::callGraphicsMethod(RoGraphicsCallback fn, bool wait) {
+    std::unique_lock<std::mutex> lock(myQueueMutex);
+    myQueue.emplace_back(fn, wait);
+    myQueueCondVar.notify_all();
+    QueueItem& item = myQueue.back();
+    lock.unlock();
+    item.wait();
+}
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 FrameBufferRoku::FrameBufferRoku(OSystem& osystem)
   : FrameBuffer(osystem),
-	//    myWindow(nullptr),
-	//    myRenderer(nullptr),
-    myGraphics(R2D2::RoGraphics::Create()),
-
-    //myScreen(myGraphics->CreateScreen(378, 213, true)), // SMALLEST 16x9
-
-    //myScreen(myGraphics->CreateScreen(426, 240, true)), // OKAY
-	//myScreen(myGraphics->CreateScreen(394, 222, true)), // OKAY
-	// myScreen(myGraphics->CreateScreen(362, 204, true)), // JUST TOO SMALL
-	//myScreen(myGraphics->CreateScreen(320, 180, true)), // NO GO
-	//myScreen(myGraphics->CreateScreen(213, 120, true)), // NO GO
-	
-    //myScreen(myGraphics->CreateScreen(640, 480, true)), // Minimum needed for launcher window, but stretches screen
-    myScreen(myGraphics->CreateScreen(852, 480, true)), // Works with launcher window, but more is off screen than 640x480
-
-	//myScreen(myGraphics->CreateScreen(160, 192, true)), // NO GO
-	//myScreen(myGraphics->CreateScreen(1280, 720, true)), // OKAY
+    myStopping(false),
     myDirtyFlag(true)
 {
-	//	printf("FrameBufferRoku::FrameBufferRoku %p ()\n", this);
+    // int width = 378, height = 213; // SMALLEST 16x9
+    // int width = 426, height = 240; // OKAY
+    // int width = 394, height = 222; // OKAY
+    // int width = 362, height = 204; // JUST TOO SMALL
+    // int width = 320, height = 180; // NO GO
+    // int width = 213, height = 120; // NO GO
+    // int width = 640, 480; // Minimum needed for launcher window, but stretches screen
+    int width = 852, height = 480; // Works with launcher window, but more is off screen than 640x480
+    // int width = 160, height = 192, ; // NO GO
+    // int width = 1280, height = 720, ; // OKAY
+
+    myRenderThread = std::thread([this, width, height](){ run(width, height); });
+
+    //	printf("FrameBufferRoku::FrameBufferRoku %p ()\n", this);
 #if 0
   // Initialize Roku context
   if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK) < 0)
@@ -70,6 +139,11 @@ FrameBufferRoku::FrameBufferRoku(OSystem& osystem)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 FrameBufferRoku::~FrameBufferRoku()
 {
+    myStopping = true;
+    myQueueCondVar.notify_all();
+    if (myRenderThread.joinable()) {
+        myRenderThread.join();
+    }
 	//	printf("FrameBufferRoku::~FrameBufferRoku %p ()\n", this);
 #if 0
 	SDL_FreeFormat(myPixelFormat);
@@ -93,7 +167,10 @@ void FrameBufferRoku::queryHardware(vector<GUI::Size>& displays,
                                     VariantList& renderers)
 {
 	//	printf("FrameBufferRoku::queryHardware %p ()\n", this);
-	R2D2::RoRect r = myScreen->GetBounds();
+    R2D2::RoRect r;
+    callScreenMethod([&r](R2D2::RoScreen* screen) {
+        r = screen->GetBounds();
+    }, true);
 	displays.emplace_back(r.width, r.height);
   VarList::push_back(renderers, "Roku", "roku");
 #if 0
@@ -265,7 +342,9 @@ void FrameBufferRoku::invalidate()
 {
 	//	printf("FrameBufferRoku::invalidate %p ()\n", this);
   myDirtyFlag = true;
-  myScreen->Clear(R2D2::RoColor(0,0,0,255));
+  callScreenMethod([](R2D2::RoScreen* screen) {
+      screen->Clear(R2D2::RoColor(0,0,0,255));
+  }, false);
   #if 0
   SDL_RenderClear(myRenderer);
   #endif
@@ -329,7 +408,9 @@ void FrameBufferRoku::postFrameUpdate()
   {
     // Now show all changes made to the renderer
 	  //    SDL_RenderPresent(myRenderer);
-	myScreen->SwapBuffers();
+    callScreenMethod([](R2D2::RoScreen* screen) {
+      screen->SwapBuffers();
+    }, false);
     myDirtyFlag = false;
   }
 }

@@ -131,10 +131,10 @@ bool FBSurfaceSDL2::render()
 {
   if(mySurfaceIsDirty && myIsVisible)
   {
-cerr << "src: x=" << mySrcR.x << ", y=" << mySrcR.y << ", w=" << mySrcR.w << ", h=" << mySrcR.h << endl;
-cerr << "dst: x=" << myDstR.x << ", y=" << myDstR.y << ", w=" << myDstR.w << ", h=" << myDstR.h << endl;
+//cerr << "src: x=" << mySrcR.x << ", y=" << mySrcR.y << ", w=" << mySrcR.w << ", h=" << mySrcR.h << endl;
+//cerr << "dst: x=" << myDstR.x << ", y=" << myDstR.y << ", w=" << myDstR.w << ", h=" << myDstR.h << endl;
 
-cerr << "render()\n";
+//cerr << "render()\n";
     if(myTexAccess == SDL_TEXTUREACCESS_STREAMING)
       SDL_UpdateTexture(myTexture, &mySrcR, mySurface->pixels, mySurface->pitch);
     SDL_RenderCopy(myFB.myRenderer, myTexture, &mySrcR, &myDstR);

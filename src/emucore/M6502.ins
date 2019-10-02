@@ -4422,7 +4422,15 @@ case 0x85:
 }
 SET_LAST_POKE(myLastSrcAddressA)
 {
+#ifdef TIME_M6502_EXTRA
+  timeA = std::chrono::high_resolution_clock::now();
+#endif
   poke(operandAddress, A);
+#ifdef TIME_M6502_EXTRA
+  timeB = std::chrono::high_resolution_clock::now();
+  key = -(Int32)operandAddress;
+  t1 += std::chrono::duration_cast<std::chrono::microseconds>(timeB - timeA).count();
+#endif
 }
 break;
 

@@ -159,12 +159,14 @@ void System::poke(uInt16 addr, uInt8 value)
   // See if this page uses direct accessing or not
   if(access.directPokeBase)
   {
+      printf("d");
     // Since we have direct access to this poke, we can dirty its page
     *(access.directPokeBase + (addr & PAGE_MASK)) = value;
     myPageIsDirtyTable[page] = true;
   }
   else
   {
+      // printf("%s", access.device->name().c_str());
     // The specific device informs us if the poke succeeded
     myPageIsDirtyTable[page] = access.device->poke(addr, value);
   }

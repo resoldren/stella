@@ -19,6 +19,7 @@
 #include <sstream>
 #include <fstream>
 
+#include <chrono>
 #include <ctime>
 #ifdef HAVE_GETTIMEOFDAY
   #include <sys/time.h>
@@ -316,7 +317,9 @@ string OSystem::createConsole(const FilesystemNode& rom, const string& md5sum,
   {
     closeConsole();
     printf("CREATE...open\n");
+    printf("A\n");
     myConsole = openConsole(myRomFile, myRomMD5, type, id);
+    printf("B\n");
   }
   catch(const runtime_error& e)
   {
@@ -654,6 +657,7 @@ uInt64 OSystem::getTicks() const
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 void OSystem::mainLoop()
 {
+  auto time1 = std::chrono::high_resolution_clock::now();
   if(mySettings->getString("timing") == "sleep")
   {
     // Sleep-based wait: good for CPU, bad for graphical sync
@@ -662,21 +666,32 @@ void OSystem::mainLoop()
       myTimingInfo.start = getTicks();
       myEventHandler->poll(myTimingInfo.start);
       if(myQuitLoop) break;  // Exit if the user wants to quit
+      auto time2 = std::chrono::high_resolution_clock::now();
+      auto pre = std::chrono::high_resolution_clock::now();
       myFrameBuffer->update();
+      auto post = std::chrono::high_resolution_clock::now();
       myTimingInfo.current = getTicks();
       myTimingInfo.virt += myTimePerFrame;
-
+#if 0
+      printf("mainLoop calling update - sleep version: %lldus poll: %lldus\n",
+             std::chrono::duration_cast<std::chrono::microseconds>(time2 - time1).count(),
+             std::chrono::duration_cast<std::chrono::microseconds>(post - pre).count());
+      time1 = time2;
+#endif
       // Timestamps may periodically go out of sync, particularly on systems
       // that can have 'negative time' (ie, when the time seems to go backwards)
       // This normally results in having a very large delay time, so we check
       // for that and reset the timers when appropriate
       if((myTimingInfo.virt - myTimingInfo.current) > (myTimePerFrame << 1))
       {
+        printf("adjusting %lld %lld %d\n", myTimingInfo.virt, myTimingInfo.current,(myTimePerFrame << 1));
         myTimingInfo.start = myTimingInfo.current = myTimingInfo.virt = getTicks();
       }
 
-      if(myTimingInfo.current < myTimingInfo.virt)
-	MediaFactory::delay(uInt32(myTimingInfo.virt - myTimingInfo.current) / 1000);
+      if(myTimingInfo.current < myTimingInfo.virt) {
+          printf("delay: %lld\n", myTimingInfo.virt - myTimingInfo.current);
+        MediaFactory::delay(uInt32(myTimingInfo.virt - myTimingInfo.current) / 1000);
+      }
 
       myTimingInfo.totalTime += (getTicks() - myTimingInfo.start);
       myTimingInfo.totalFrames++;
@@ -690,6 +705,7 @@ void OSystem::mainLoop()
       myTimingInfo.start = getTicks();
       myEventHandler->poll(myTimingInfo.start);
       if(myQuitLoop) break;  // Exit if the user wants to quit
+      printf("mainLoop calling update - busy wait version\n");
       myFrameBuffer->update();
       myTimingInfo.virt += myTimePerFrame;
 

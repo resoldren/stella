@@ -16,6 +16,7 @@
 //============================================================================
 
 #include <algorithm>
+#include <chrono>
 #include <sstream>
 
 #include "bspf.hxx"
@@ -255,6 +256,9 @@ void FrameBuffer::update()
   // Take care of S_EMULATE mode here, otherwise let the GUI
   // figure out what to draw
 
+#ifdef TIME_FRAMEBUFFER
+  std::chrono::high_resolution_clock::time_point time1, time2, time3, time4;
+#endif
   invalidate();
   switch(myOSystem.eventHandler().state())
   {
@@ -263,15 +267,27 @@ void FrameBuffer::update()
       // Run the console for one frame
       // Note that the debugger can cause a breakpoint to occur, which changes
       // the EventHandler state 'behind our back' - we need to check for that
+#ifdef TIME_FRAMEBUFFER
+      time1 = std::chrono::high_resolution_clock::now();
+#endif
       myOSystem.console().tia().update();
+#ifdef TIME_FRAMEBUFFER
+      time2 = std::chrono::high_resolution_clock::now();
+#endif
   #ifdef DEBUGGER_SUPPORT
       if(myOSystem.eventHandler().state() != EventHandler::S_EMULATE) break;
   #endif
       if(myOSystem.eventHandler().frying())
         myOSystem.console().fry();
+#ifdef TIME_FRAMEBUFFER
+      time3 = std::chrono::high_resolution_clock::now();
+#endif
 
       // And update the screen
       myTIASurface->render();
+#ifdef TIME_FRAMEBUFFER
+      time4 = std::chrono::high_resolution_clock::now();
+#endif
 
       // Show frame statistics
       if(myStatsMsg.enabled)
@@ -341,9 +357,22 @@ void FrameBuffer::update()
   // Draw any pending messages
   if(myMsg.enabled)
     drawMessage();
+#ifdef TIME_FRAMEBUFFER
+  auto time5 = std::chrono::high_resolution_clock::now();
+#endif
 
   // Do any post-frame stuff
   postFrameUpdate();
+#ifdef TIME_FRAMEBUFFER
+  auto time6 = std::chrono::high_resolution_clock::now();
+  printf("FB::update : %lldus %lldus %lldus %lldus %lldus \n",
+         std::chrono::duration_cast<std::chrono::microseconds>(time2 - time1).count(),
+         std::chrono::duration_cast<std::chrono::microseconds>(time3 - time2).count(),
+         std::chrono::duration_cast<std::chrono::microseconds>(time4 - time3).count(),
+         std::chrono::duration_cast<std::chrono::microseconds>(time5 - time4).count(),
+         std::chrono::duration_cast<std::chrono::microseconds>(time6 - time5).count()
+         );
+#endif
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

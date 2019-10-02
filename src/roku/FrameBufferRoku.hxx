@@ -20,6 +20,11 @@ class FBSurfaceRoku;
 #include "FrameBuffer.hxx"
 
 #include <roku/robitmap.h>
+#include <condition_variable>
+#include <deque>
+#include <functional>
+#include <mutex>
+#include <thread>
 
 class FrameBufferRoku : public FrameBuffer
 {
@@ -148,18 +153,47 @@ class FrameBufferRoku : public FrameBuffer
     */
     void postFrameUpdate() override;
 
+    using RoScreenCallback = std::function<void(R2D2::RoScreen*)>;
+    using RoGraphicsCallback = std::function<void(R2D2::RoGraphics*)>;
+
+    void callScreenMethod(RoScreenCallback fn, bool wait);
+
+    void callGraphicsMethod(RoGraphicsCallback fn, bool wait);
+
   private:
-    // The SDL video buffer
-    // SDL_Window* myWindow;
-    // SDL_Renderer* myRenderer;
-	R2D2::RoGraphics* myGraphics;
-	R2D2::RoScreen* myScreen;
+    bool myStopping;
+
+    std::thread myRenderThread;
 
     // Used by mapRGB (when palettes are created)
     // SDL_PixelFormat* myPixelFormat;
 
     // Indicates that the renderer has been modified, and should be redrawn
     bool myDirtyFlag;
+
+    class QueueItem {
+    public:
+        QueueItem(RoScreenCallback callback, bool waitFor);
+        QueueItem(RoGraphicsCallback callback, bool waitFor);
+        void operator()(R2D2::RoGraphics*, R2D2::RoScreen*);
+        void wait();
+    private:
+        QueueItem(const QueueItem&) = delete;
+        QueueItem& operator=(const QueueItem&) = delete;
+        std::mutex mutex;
+        std::condition_variable cv;
+        bool done;
+
+        RoScreenCallback cbScreen;
+        RoGraphicsCallback cbGraphics;
+        bool waitFor;
+
+    };
+
+    void run(int width, int height);
+    std::mutex myQueueMutex;
+    std::condition_variable myQueueCondVar;
+    std::deque<QueueItem> myQueue;
 
   private:
     // Following constructors and assignment operators not supported
@@ -168,6 +202,8 @@ class FrameBufferRoku : public FrameBuffer
     FrameBufferRoku(FrameBufferRoku&&) = delete;
     FrameBufferRoku& operator=(const FrameBufferRoku&) = delete;
     FrameBufferRoku& operator=(FrameBufferRoku&&) = delete;
+
 };
 
 #endif
+
